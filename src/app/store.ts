@@ -30,6 +30,20 @@ export interface Product {
   unit: string;
   rate: number;
   gst: number;
+  trackStock: boolean; // false for services
+  stock: number;
+  reorderLevel: number; // low-stock alert at or below this
+}
+
+export type MoveType = 'in' | 'out' | 'adjust';
+
+export interface StockMove {
+  id: string;
+  productId: string;
+  date: string;
+  type: MoveType;
+  qty: number; // signed change in stock
+  note: string;
 }
 
 export interface LineItem {
@@ -87,10 +101,11 @@ interface State {
   products: Product[];
   quotes: Quote[];
   proformas: Proforma[];
+  moves: StockMove[];
   seq: { quote: number; proforma: number };
 }
 
-const KEY = 'quotekaro-demo-v1';
+const KEY = 'quotekaro-demo-v2';
 
 export const STATES = [
   'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana',
@@ -128,12 +143,23 @@ function seed(): State {
     { id: 'c3', name: 'Greenfield Solar LLP', contact: 'Vikram Singh', phone: '9971123456', gstin: '06AAGFG4321L1Z8', state: 'Haryana', address: 'Udyog Vihar, Gurugram' },
   ];
   const products: Product[] = [
-    { id: 'p1', name: 'Copper bonded earthing electrode 3 m', hsn: '8538', unit: 'pcs', rate: 4850, gst: 18 },
-    { id: 'p2', name: 'Earthing backfill compound 25 kg', hsn: '3824', unit: 'bag', rate: 1250, gst: 18 },
-    { id: 'p3', name: 'ESE lightning arrester', hsn: '8535', unit: 'pcs', rate: 38500, gst: 18 },
-    { id: 'p4', name: 'Copper strip 25x3 mm', hsn: '7409', unit: 'm', rate: 820, gst: 18 },
-    { id: 'p5', name: 'Earth pit cover (polymer)', hsn: '3926', unit: 'pcs', rate: 650, gst: 18 },
-    { id: 'p6', name: 'Installation & testing charges', hsn: '9954', unit: 'job', rate: 7500, gst: 18 },
+    { id: 'p1', name: 'Copper bonded earthing electrode 3 m', hsn: '8538', unit: 'pcs', rate: 4850, gst: 18, trackStock: true, stock: 42, reorderLevel: 15 },
+    { id: 'p2', name: 'Earthing backfill compound 25 kg', hsn: '3824', unit: 'bag', rate: 1250, gst: 18, trackStock: true, stock: 18, reorderLevel: 25 },
+    { id: 'p3', name: 'ESE lightning arrester', hsn: '8535', unit: 'pcs', rate: 38500, gst: 18, trackStock: true, stock: 3, reorderLevel: 2 },
+    { id: 'p4', name: 'Copper strip 25x3 mm', hsn: '7409', unit: 'm', rate: 820, gst: 18, trackStock: true, stock: 240, reorderLevel: 100 },
+    { id: 'p5', name: 'Earth pit cover (polymer)', hsn: '3926', unit: 'pcs', rate: 650, gst: 18, trackStock: true, stock: 6, reorderLevel: 10 },
+    { id: 'p6', name: 'Installation & testing charges', hsn: '9954', unit: 'job', rate: 7500, gst: 18, trackStock: false, stock: 0, reorderLevel: 0 },
+  ];
+  const moves: StockMove[] = [
+    { id: 'm1', productId: 'p1', date: today(-30), type: 'in', qty: 50, note: 'Opening stock' },
+    { id: 'm2', productId: 'p2', date: today(-30), type: 'in', qty: 38, note: 'Opening stock' },
+    { id: 'm3', productId: 'p3', date: today(-30), type: 'in', qty: 3, note: 'Opening stock' },
+    { id: 'm4', productId: 'p4', date: today(-30), type: 'in', qty: 240, note: 'Opening stock' },
+    { id: 'm5', productId: 'p5', date: today(-30), type: 'in', qty: 16, note: 'Opening stock' },
+    { id: 'm6', productId: 'p1', date: today(-15), type: 'in', qty: 2, note: 'Received from supplier' },
+    { id: 'm7', productId: 'p1', date: today(-8), type: 'out', qty: -10, note: 'PI-2026-001 · Sharma Builders' },
+    { id: 'm8', productId: 'p2', date: today(-8), type: 'out', qty: -20, note: 'PI-2026-001 · Sharma Builders' },
+    { id: 'm9', productId: 'p5', date: today(-8), type: 'out', qty: -10, note: 'PI-2026-001 · Sharma Builders' },
   ];
   const item = (p: Product, qty: number, discount = 0): LineItem => ({
     productId: p.id, name: p.name, hsn: p.hsn, unit: p.unit, qty, rate: p.rate, discount, gst: p.gst,
@@ -165,6 +191,7 @@ function seed(): State {
     products,
     quotes,
     proformas,
+    moves,
     seq: { quote: 5, proforma: 1 },
   };
 }
@@ -172,7 +199,10 @@ function seed(): State {
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as State;
+    if (raw) {
+      const s = JSON.parse(raw) as State;
+      if (Array.isArray(s.moves)) return s;
+    }
   } catch {
     /* storage unavailable */
   }
@@ -188,6 +218,21 @@ export class Store {
   readonly products = computed(() => this.state().products);
   readonly quotes = computed(() => [...this.state().quotes].sort((a, b) => b.number.localeCompare(a.number)));
   readonly proformas = computed(() => this.state().proformas);
+  readonly moves = computed(() => this.state().moves);
+
+  readonly lowStock = computed(() =>
+    this.state().products.filter((p) => p.trackStock && p.stock <= p.reorderLevel),
+  );
+
+  readonly inventory = computed(() => {
+    const tracked = this.state().products.filter((p) => p.trackStock);
+    return {
+      items: tracked.length,
+      units: tracked.reduce((s, p) => s + Math.max(0, p.stock), 0),
+      value: tracked.reduce((s, p) => s + Math.max(0, p.stock) * p.rate, 0),
+      low: tracked.filter((p) => p.stock <= p.reorderLevel).length,
+    };
+  });
 
   readonly stats = computed(() => {
     const qs = this.state().quotes;
@@ -237,6 +282,26 @@ export class Store {
   proforma(id: string): Proforma | undefined {
     return this.state().proformas.find((p) => p.id === id);
   }
+  product(id: string): Product | undefined {
+    return this.state().products.find((p) => p.id === id);
+  }
+  movesFor(productId: string): StockMove[] {
+    return this.state()
+      .moves.filter((m) => m.productId === productId)
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  }
+
+  /** Items in a document that need more stock than is available. */
+  shortages(items: LineItem[]): { name: string; unit: string; need: number; have: number }[] {
+    const need = new Map<string, number>();
+    for (const i of items) need.set(i.productId, (need.get(i.productId) ?? 0) + (i.qty || 0));
+    const out: { name: string; unit: string; need: number; have: number }[] = [];
+    for (const [id, qty] of need) {
+      const p = this.product(id);
+      if (p?.trackStock && qty > p.stock) out.push({ name: p.name, unit: p.unit, need: qty, have: p.stock });
+    }
+    return out;
+  }
 
   totals(doc: { items: LineItem[]; customerId: string }): Totals {
     const interState = (this.customer(doc.customerId)?.state || '') !== this.state().company.state;
@@ -281,10 +346,46 @@ export class Store {
   }
 
   saveProduct(p: Product) {
+    const isNew = !p.id;
     const rec = { ...p, id: p.id || uid() };
+    this.patch((s) => {
+      const moves = [...s.moves];
+      if (isNew && rec.trackStock && rec.stock) {
+        moves.push({ id: uid(), productId: rec.id, date: today(0), type: 'in', qty: rec.stock, note: 'Opening stock' });
+      }
+      if (!isNew) {
+        // Stock is changed only through stock in / adjust, never by editing details
+        const prev = s.products.find((x) => x.id === rec.id);
+        if (prev) rec.stock = prev.stock;
+      }
+      return {
+        ...s,
+        moves,
+        products: s.products.some((x) => x.id === rec.id) ? s.products.map((x) => (x.id === rec.id ? rec : x)) : [...s.products, rec],
+      };
+    });
+  }
+
+  /** Record stock received (qty > 0). */
+  stockIn(productId: string, qty: number, note: string) {
+    if (!(qty > 0)) return;
     this.patch((s) => ({
       ...s,
-      products: s.products.some((x) => x.id === rec.id) ? s.products.map((x) => (x.id === rec.id ? rec : x)) : [...s.products, rec],
+      products: s.products.map((p) => (p.id === productId ? { ...p, stock: p.stock + qty } : p)),
+      moves: [...s.moves, { id: uid(), productId, date: today(0), type: 'in', qty, note: note || 'Stock received' }],
+    }));
+  }
+
+  /** Set stock to a counted quantity (e.g. after a physical count, damage or loss). */
+  adjustStock(productId: string, counted: number, note: string) {
+    const p = this.product(productId);
+    if (!p || !(counted >= 0)) return;
+    const diff = counted - p.stock;
+    if (!diff) return;
+    this.patch((s) => ({
+      ...s,
+      products: s.products.map((x) => (x.id === productId ? { ...x, stock: counted } : x)),
+      moves: [...s.moves, { id: uid(), productId, date: today(0), type: 'adjust', qty: diff, note: note || 'Stock count adjustment' }],
     }));
   }
 
@@ -337,8 +438,20 @@ export class Store {
         id: uid(), number: `PI-${new Date().getFullYear()}-${String(n).padStart(3, '0')}`, quoteId: q.id,
         customerId: q.customerId, date: today(0), items: q.items.map((i) => ({ ...i })), notes: q.notes,
       };
+      // Confirmed order: take the items out of stock
+      const custName = s.customers.find((c) => c.id === q.customerId)?.name ?? '';
+      const moves = [...s.moves];
+      let products = s.products;
+      for (const i of q.items) {
+        const p = products.find((x) => x.id === i.productId);
+        if (!p?.trackStock || !i.qty) continue;
+        products = products.map((x) => (x.id === p.id ? { ...x, stock: x.stock - i.qty } : x));
+        moves.push({ id: uid(), productId: p.id, date: today(0), type: 'out', qty: -i.qty, note: `${pi.number} · ${custName}` });
+      }
       return {
         ...s,
+        products,
+        moves,
         seq: { ...s.seq, proforma: n },
         proformas: [...s.proformas, pi],
         quotes: s.quotes.map((x) => (x.id === q.id ? { ...x, proformaId: pi.id, status: 'won', followUp: '' } : x)),

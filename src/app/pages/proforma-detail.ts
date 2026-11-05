@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store, fmtDate, inr } from '../store';
 import { DocView } from './doc-view';
@@ -45,8 +46,9 @@ import { isEmbedded } from '../memory-location';
 })
 export class ProformaDetail {
   protected readonly store = inject(Store);
-  private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
-  protected readonly pi = computed(() => this.store.proforma(this.id));
+  private readonly params = toSignal(inject(ActivatedRoute).paramMap);
+  private readonly id = computed(() => this.params()?.get('id') ?? '');
+  protected readonly pi = computed(() => this.store.proforma(this.id()));
   protected readonly customer = computed(() => this.store.customer(this.pi()?.customerId ?? ''));
   protected readonly toast = signal('');
   private flash(msg: string) {
@@ -66,6 +68,10 @@ export class ProformaDetail {
       `Bank details: ${co.bank}\n\nRegards,\n${co.name}\n${co.phone}`;
     return waLink(c.phone, text);
   });
+
+  constructor() {
+    if (history.state?.stockUpdated) setTimeout(() => this.flash('Proforma created. Stock updated.'));
+  }
 
   onShared() {}
 

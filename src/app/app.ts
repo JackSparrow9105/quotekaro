@@ -49,9 +49,12 @@ import { Store } from './store';
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>
         <span>Customers</span>
       </a>
-      <a routerLink="/products" routerLinkActive="active" class="tab">
+      <a routerLink="/inventory" routerLinkActive="active" class="tab">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 8-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
-        <span>Products</span>
+        <span>Inventory</span>
+        @if (store.lowStock().length) {
+          <span class="tab-dot" aria-label="Low stock items"></span>
+        }
       </a>
     </nav>
   `,

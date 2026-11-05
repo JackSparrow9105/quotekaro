@@ -34,6 +34,20 @@ import { StatusBadge } from './status-badge';
         </div>
       </div>
 
+      @if (store.lowStock().length) {
+        <a routerLink="/inventory" class="low-stock-card">
+          <div class="grow">
+            <div class="low-stock-title">{{ store.lowStock().length }} {{ store.lowStock().length === 1 ? 'item is' : 'items are' }} running low</div>
+            <div class="card-meta">
+              @for (p of store.lowStock().slice(0, 3); track p.id; let last = $last) {
+                {{ p.name }} ({{ p.stock }} {{ p.unit }}){{ last ? '' : ', ' }}
+              }
+            </div>
+          </div>
+          <span class="link">Restock</span>
+        </a>
+      }
+
       <div class="section-head">
         <h2>Follow up today</h2>
         <span class="pill">{{ store.followUps().length }}</span>

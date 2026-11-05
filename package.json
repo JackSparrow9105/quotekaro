@@ -6,7 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-  "deploy": "ng build --base-href /quotekaro/ && npx angular-cli-ghpages --dir=dist/quotekaro/browser"
+    "test": "ng test"
   },
   "private": true,
   "packageManager": "npm@10.9.9",

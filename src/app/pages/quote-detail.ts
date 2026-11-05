@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Store, fmtDate, inr, today } from '../store';
@@ -67,6 +68,19 @@ import { isEmbedded } from '../memory-location';
             </div>
           }
 
+          @if (!q.proformaId && q.status !== 'lost') {
+            @if (shortages().length) {
+              <div class="stock-alert" role="note">
+                <div class="stock-alert-title">Not enough stock for this order</div>
+                @for (x of shortages(); track x.name) {
+                  <div class="card-meta">{{ x.name }}: need {{ x.need }}, have {{ x.have }} {{ x.unit }}</div>
+                }
+              </div>
+            } @else {
+              <div class="stock-ok">All items are in stock. Converting to proforma will reserve them.</div>
+            }
+          }
+
           <div class="btn-row">
             @if (q.proformaId) {
               <a class="btn btn-primary" [routerLink]="['/proforma', q.proformaId]">View proforma</a>
@@ -104,10 +118,12 @@ import { isEmbedded } from '../memory-location';
 export class QuoteDetail {
   protected readonly store = inject(Store);
   private readonly router = inject(Router);
-  private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
-  protected readonly quote = computed(() => this.store.quote(this.id));
+  private readonly params = toSignal(inject(ActivatedRoute).paramMap);
+  private readonly id = computed(() => this.params()?.get('id') ?? '');
+  protected readonly quote = computed(() => this.store.quote(this.id()));
   protected readonly customer = computed(() => this.store.customer(this.quote()?.customerId ?? ''));
   protected readonly toast = signal('');
+  protected readonly shortages = computed(() => this.store.shortages(this.quote()?.items ?? []));
 
   private flash(msg: string) {
     this.toast.set(msg);
@@ -118,12 +134,12 @@ export class QuoteDetail {
     const changes: Record<string, unknown> = { status };
     if (status === 'won' || status === 'lost') changes['followUp'] = '';
     if (status === 'sent' && !this.quote()?.followUp) changes['followUp'] = today(3);
-    this.store.updateQuote(this.id, changes);
+    this.store.updateQuote(this.id(), changes);
     this.flash(status === 'won' ? 'Marked as won' : `Marked as ${status}`);
   }
 
   snooze(days: number) {
-    this.store.updateQuote(this.id, { followUp: today(days) });
+    this.store.updateQuote(this.id(), { followUp: today(days) });
     this.flash(`Reminder set for ${fmtDate(today(days))}`);
   }
 
@@ -154,12 +170,12 @@ export class QuoteDetail {
   }
 
   convert() {
-    const pi = this.store.convertToProforma(this.id);
-    if (pi) this.router.navigate(['/proforma', pi.id]);
+    const pi = this.store.convertToProforma(this.id());
+    if (pi) this.router.navigate(['/proforma', pi.id], { state: { stockUpdated: true } });
   }
 
   duplicate() {
-    const copy = this.store.duplicateQuote(this.id);
+    const copy = this.store.duplicateQuote(this.id());
     if (copy) this.router.navigate(['/quotes', copy.id, 'edit']);
   }
 }

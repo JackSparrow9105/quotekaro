@@ -59,6 +59,13 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
               <div>
                 <div class="card-title">{{ i.name }}</div>
                 <div class="card-meta">HSN {{ i.hsn }} · GST {{ i.gst }}%</div>
+                @if (stockOf(i.productId); as p) {
+                  @if (needOf(i.productId) > p.stock) {
+                    <div class="stock-warn">Only {{ p.stock }} {{ p.unit }} in stock</div>
+                  } @else {
+                    <div class="stock-ok">{{ p.stock }} {{ p.unit }} in stock</div>
+                  }
+                }
               </div>
               <button type="button" class="icon-btn danger" (click)="removeItem(idx)" [attr.aria-label]="'Remove ' + i.name">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -81,7 +88,7 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
         <select id="addp" #addSel (change)="addItem(addSel.value); addSel.value = ''">
           <option value="">Choose from catalogue…</option>
           @for (p of store.products(); track p.id) {
-            <option [value]="p.id">{{ p.name }} — {{ money(p.rate) }}/{{ p.unit }}</option>
+            <option [value]="p.id">{{ p.name }} — {{ money(p.rate) }}/{{ p.unit }}{{ p.trackStock ? ' · ' + p.stock + ' in stock' : '' }}</option>
           }
         </select>
       </div>
@@ -165,6 +172,15 @@ export class QuoteEdit {
   save() {
     const saved = this.store.saveQuote(this.draft());
     this.router.navigate(['/quotes', saved.id]);
+  }
+  /** Product if it tracks stock, so the item can show availability. */
+  stockOf(productId: string) {
+    const p = this.store.product(productId);
+    return p?.trackStock ? p : null;
+  }
+  /** Total quantity of a product across all lines of this quote. */
+  needOf(productId: string) {
+    return this.draft().items.filter((i) => i.productId === productId).reduce((s, i) => s + (i.qty || 0), 0);
   }
   money = inr;
 }

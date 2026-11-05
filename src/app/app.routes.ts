@@ -5,7 +5,7 @@ import { QuoteEdit } from './pages/quote-edit';
 import { QuoteDetail } from './pages/quote-detail';
 import { ProformaDetail } from './pages/proforma-detail';
 import { Customers } from './pages/customers';
-import { Products } from './pages/products';
+import { Inventory } from './pages/inventory';
 import { Settings } from './pages/settings';
 
 export const routes: Routes = [
@@ -16,7 +16,8 @@ export const routes: Routes = [
   { path: 'quotes/:id/edit', component: QuoteEdit, title: 'Edit quote · QuoteKaro' },
   { path: 'proforma/:id', component: ProformaDetail, title: 'Proforma · QuoteKaro' },
   { path: 'customers', component: Customers, title: 'Customers · QuoteKaro' },
-  { path: 'products', component: Products, title: 'Products · QuoteKaro' },
+  { path: 'inventory', component: Inventory, title: 'Inventory · QuoteKaro' },
+  { path: 'products', redirectTo: 'inventory' },
   { path: 'settings', component: Settings, title: 'Settings · QuoteKaro' },
   { path: '**', redirectTo: '' },
 ];
