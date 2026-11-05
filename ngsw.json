@@ -1,0 +1,77 @@
+{
+  "configVersion": 1,
+  "timestamp": 1793866846961,
+  "index": "/quotekaro/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/quotekaro/favicon.ico",
+        "/quotekaro/index.html",
+        "/quotekaro/main-MPKGM6EP.js",
+        "/quotekaro/manifest.webmanifest",
+        "/quotekaro/styles-AAMDU4MC.css"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/quotekaro/icons/icon-128x128.png",
+        "/quotekaro/icons/icon-144x144.png",
+        "/quotekaro/icons/icon-152x152.png",
+        "/quotekaro/icons/icon-192x192.png",
+        "/quotekaro/icons/icon-384x384.png",
+        "/quotekaro/icons/icon-512x512.png",
+        "/quotekaro/icons/icon-72x72.png",
+        "/quotekaro/icons/icon-96x96.png"
+      ],
+      "patterns": []
+    }
+  ],
+  "dataGroups": [],
+  "hashTable": {
+    "/quotekaro/favicon.ico": "dfe6698266968d4df2d2a1c9ecebfa87da156f7d",
+    "/quotekaro/icons/icon-128x128.png": "8772b922c17cc63f9579b27c722cc87b1be2c038",
+    "/quotekaro/icons/icon-144x144.png": "1246745ebce0c42772bd815914b5fcb56b9fbae3",
+    "/quotekaro/icons/icon-152x152.png": "8a4f2b7f6670c9f6621a9573fc65c0c62745f14e",
+    "/quotekaro/icons/icon-192x192.png": "ea5753eb974daca4c704070ceee2423b10bb0aa8",
+    "/quotekaro/icons/icon-384x384.png": "218fd2ab5cbf5fee5dfbf4962ac0c00b7d8f8750",
+    "/quotekaro/icons/icon-512x512.png": "84fc4c6eae7997e3ea9b77ff85545f243df8b1ef",
+    "/quotekaro/icons/icon-72x72.png": "2cbd80ef5b30ac1c2775c4ae2ef0eb1fe13a46f0",
+    "/quotekaro/icons/icon-96x96.png": "3276c1aadddba0e0a83d0413f5987b6255da8c0d",
+    "/quotekaro/index.html": "b73cb61e97c39d17926634badea839a3d7113acd",
+    "/quotekaro/main-MPKGM6EP.js": "42c00993e002af73e534ddd32423bed42aa3a460",
+    "/quotekaro/manifest.webmanifest": "5a9a56bc13870fe879f4d659572f4ef8da27fb92",
+    "/quotekaro/styles-AAMDU4MC.css": "5f0867d5f3940b734513ed4874be2ed9e7f8d66b"
+  },
+  "navigationUrls": [
+    {
+      "positive": true,
+      "regex": "^\\/.*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*\\.[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
+    }
+  ],
+  "navigationRequestStrategy": "performance"
+}
