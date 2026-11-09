@@ -2,7 +2,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Store, fmtDate, inr, today } from '../store';
+import { DocTemplate, Store, fmtDate, inr, today } from '../store';
+import { LayoutChooser } from './layout-picker';
 import { DocView } from './doc-view';
 import { StatusBadge } from './status-badge';
 import { waLink } from './share';
@@ -10,7 +11,7 @@ import { isEmbedded } from '../memory-location';
 
 @Component({
   selector: 'app-quote-detail',
-  imports: [RouterLink, FormsModule, DocView, StatusBadge],
+  imports: [RouterLink, FormsModule, DocView, StatusBadge, LayoutChooser],
   template: `
     @if (quote(); as q) {
       <section class="page">
@@ -97,6 +98,7 @@ import { isEmbedded } from '../memory-location';
           }
         </div>
 
+          <app-layout-chooser [(value)]="layout" />
         </aside>
 
         <div class="detail-main">
@@ -109,6 +111,7 @@ import { isEmbedded } from '../memory-location';
           [customerId]="q.customerId"
           [items]="q.items"
           [notes]="q.notes"
+          [template]="layout()"
         />
         </div>
         </div>
@@ -130,6 +133,7 @@ export class QuoteDetail {
   protected readonly quote = computed(() => this.store.quote(this.id()));
   protected readonly customer = computed(() => this.store.customer(this.quote()?.customerId ?? ''));
   protected readonly toast = signal('');
+  protected readonly layout = signal<DocTemplate | null>(null);
   protected readonly shortages = computed(() => this.store.shortages(this.quote()?.items ?? []));
 
   private flash(msg: string) {

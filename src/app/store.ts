@@ -11,6 +11,44 @@ export interface Company {
   email: string;
   bank: string;
   terms: string;
+  docTemplate?: DocTemplate; // default layout for quotes & proformas
+}
+
+export type DocTemplate = 'classic' | 'modern' | 'gst' | 'elegant';
+
+export const DOC_TEMPLATES: { key: DocTemplate; name: string; desc: string }[] = [
+  { key: 'classic', name: 'Classic', desc: 'Clean and simple' },
+  { key: 'modern', name: 'Modern', desc: 'Colour header, info cards' },
+  { key: 'gst', name: 'GST / ERP', desc: 'Boxed, HSN tax summary' },
+  { key: 'elegant', name: 'Elegant', desc: 'Minimal, premium look' },
+];
+
+/** Amount in words, Indian numbering (lakh / crore). */
+export function inWords(amount: number): string {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+    'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const two = (n: number) => (n < 20 ? ones[n] : tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : ''));
+  const three = (n: number) => (n >= 100 ? ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + two(n % 100) : '') : two(n));
+  const words = (n: number): string => {
+    if (n === 0) return 'Zero';
+    const parts: string[] = [];
+    const crore = Math.floor(n / 1e7);
+    if (crore) parts.push(words(crore) + ' Crore');
+    n %= 1e7;
+    const lakh = Math.floor(n / 1e5);
+    if (lakh) parts.push(two(lakh) + ' Lakh');
+    n %= 1e5;
+    const th = Math.floor(n / 1000);
+    if (th) parts.push(two(th) + ' Thousand');
+    n %= 1000;
+    if (n) parts.push(three(n));
+    return parts.join(' ');
+  };
+  const v = Math.abs(amount || 0);
+  const rupees = Math.floor(v);
+  const paise = Math.round((v - rupees) * 100);
+  return 'Indian Rupees ' + words(rupees) + (paise ? ' and ' + two(paise) + ' Paise' : '') + ' Only';
 }
 
 export interface Customer {
@@ -214,6 +252,7 @@ export class Store {
   private readonly state = signal<State>(load());
 
   readonly company = computed(() => this.state().company);
+  readonly docTemplate = computed<DocTemplate>(() => this.state().company.docTemplate || 'classic');
   readonly customers = computed(() => this.state().customers);
   readonly products = computed(() => this.state().products);
   readonly quotes = computed(() => [...this.state().quotes].sort((a, b) => b.number.localeCompare(a.number)));
@@ -334,6 +373,10 @@ export class Store {
 
   saveCompany(c: Company) {
     this.patch((s) => ({ ...s, company: { ...c } }));
+  }
+
+  setDocTemplate(t: DocTemplate) {
+    this.patch((s) => ({ ...s, company: { ...s.company, docTemplate: t } }));
   }
 
   saveCustomer(c: Customer): Customer {

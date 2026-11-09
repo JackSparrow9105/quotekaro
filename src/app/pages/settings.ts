@@ -1,10 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Company, STATES, Store } from '../store';
+import { Company, DocTemplate, STATES, Store } from '../store';
+import { LayoutPicker } from './layout-picker';
 
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule],
+  imports: [FormsModule, LayoutPicker],
   template: `
     <section class="page page-with-bar">
       <h1 class="page-title">Business &amp; branding</h1>
@@ -63,6 +64,13 @@ import { Company, STATES, Store } from '../store';
         <div class="field"><label for="s-terms">Default terms &amp; conditions</label><textarea id="s-terms" rows="5" [(ngModel)]="c.terms"></textarea></div>
       </div>
 
+      <div class="form-card">
+        <div>
+          <div class="card-title">Quote &amp; invoice layout</div>
+          <p class="card-meta lp-help">Pick the PDF design used for every quote and proforma. You can still switch for a single document from its page.</p>
+        </div>
+        <app-layout-picker [value]="c.docTemplate || 'classic'" [showDefault]="false" (picked)="pickLayout($event)" />
+      </div>
       </div>
 
       <aside class="edit-side">
@@ -121,6 +129,11 @@ export class Settings {
 
   onClickInside(ev: Event) {
     if ((ev.target as HTMLElement).closest('.swatch, button')) this.saved.set(false);
+  }
+
+  pickLayout(t: DocTemplate) {
+    this.c.docTemplate = t;
+    this.saved.set(false);
   }
 
   save() {

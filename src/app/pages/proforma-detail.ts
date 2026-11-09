@@ -1,14 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Store, fmtDate, inr } from '../store';
+import { DocTemplate, Store, fmtDate, inr } from '../store';
+import { LayoutChooser } from './layout-picker';
 import { DocView } from './doc-view';
 import { waLink } from './share';
 import { isEmbedded } from '../memory-location';
 
 @Component({
   selector: 'app-proforma-detail',
-  imports: [RouterLink, DocView],
+  imports: [RouterLink, DocView, LayoutChooser],
   template: `
     @if (pi(); as p) {
       <section class="page">
@@ -36,10 +37,11 @@ import { isEmbedded } from '../memory-location';
           </button>
         </div>
 
+          <app-layout-chooser [(value)]="layout" />
         </aside>
 
         <div class="detail-main">
-        <app-doc-view kind="Proforma Invoice" [number]="p.number" [date]="p.date" [customerId]="p.customerId" [items]="p.items" [notes]="p.notes" />
+        <app-doc-view kind="Proforma Invoice" [number]="p.number" [date]="p.date" [customerId]="p.customerId" [items]="p.items" [notes]="p.notes" [template]="layout()" />
         </div>
         </div>
       </section>
@@ -53,6 +55,7 @@ import { isEmbedded } from '../memory-location';
 })
 export class ProformaDetail {
   protected readonly store = inject(Store);
+  protected readonly layout = signal<DocTemplate | null>(null);
   private readonly params = toSignal(inject(ActivatedRoute).paramMap);
   private readonly id = computed(() => this.params()?.get('id') ?? '');
   protected readonly pi = computed(() => this.store.proforma(this.id()));
