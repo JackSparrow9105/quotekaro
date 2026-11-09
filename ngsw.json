@@ -1,6 +1,6 @@
 {
   "configVersion": 1,
-  "timestamp": 1794209045565,
+  "timestamp": 1794213418175,
   "index": "/quotekaro/index.html",
   "assetGroups": [
     {
@@ -15,7 +15,7 @@
         "/quotekaro/index.html",
         "/quotekaro/main-JCUVAY3O.js",
         "/quotekaro/manifest.webmanifest",
-        "/quotekaro/styles-OQRF354R.css"
+        "/quotekaro/styles-ZA4B2SLI.css"
       ],
       "patterns": []
     },
@@ -50,10 +50,10 @@
     "/quotekaro/icons/icon-512x512.png": "84fc4c6eae7997e3ea9b77ff85545f243df8b1ef",
     "/quotekaro/icons/icon-72x72.png": "2cbd80ef5b30ac1c2775c4ae2ef0eb1fe13a46f0",
     "/quotekaro/icons/icon-96x96.png": "3276c1aadddba0e0a83d0413f5987b6255da8c0d",
-    "/quotekaro/index.html": "08c6ef2e4bb7915de806768dedd5ceb049e49213",
+    "/quotekaro/index.html": "265963334a15f62115371f483009ce1854dae648",
     "/quotekaro/main-JCUVAY3O.js": "99a3dee646621b17fecca8c7acbd868ad4bb7ed5",
     "/quotekaro/manifest.webmanifest": "5a9a56bc13870fe879f4d659572f4ef8da27fb92",
-    "/quotekaro/styles-OQRF354R.css": "8c46d0914a38e77ca2f09530fadd0aaa749ac783"
+    "/quotekaro/styles-ZA4B2SLI.css": "f33e975e488a210e146d845f71f9fc7006b0b0ea"
   },
   "navigationUrls": [
     {
