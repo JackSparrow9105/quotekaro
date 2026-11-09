@@ -31,7 +31,7 @@ type Filter = 'all' | QuoteStatus | 'proforma';
       </div>
 
       @if (filter() === 'proforma') {
-        <div class="list">
+        <div class="list list-grid">
           @for (p of proformas(); track p.id) {
             <a class="card card-link" [routerLink]="['/proforma', p.id]">
               <div class="card-row">
@@ -50,7 +50,7 @@ type Filter = 'all' | QuoteStatus | 'proforma';
           }
         </div>
       } @else {
-        <div class="list">
+        <div class="list list-grid">
           @for (q of list(); track q.id) {
             <a class="card card-link" [routerLink]="['/quotes', q.id]">
               <div class="card-row">

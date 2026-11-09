@@ -6,14 +6,14 @@ import { Customer, STATES, Store, inr } from '../store';
   selector: 'app-customers',
   imports: [FormsModule],
   template: `
-    <section class="page">
+    <section class="page page-split">
       <div class="page-head">
         <h1 class="page-title">Customers</h1>
         <button type="button" class="btn btn-primary btn-sm" (click)="open()">+ Add</button>
       </div>
 
       @if (editing(); as e) {
-        <div class="form-card">
+        <div class="form-card split-panel">
           <div class="field"><label for="c-name">Business name</label><input id="c-name" [(ngModel)]="e.name" /></div>
           <div class="grid-2">
             <div class="field"><label for="c-contact">Contact person</label><input id="c-contact" [(ngModel)]="e.contact" /></div>
@@ -36,7 +36,7 @@ import { Customer, STATES, Store, inr } from '../store';
         </div>
       }
 
-      <div class="list">
+      <div class="list list-grid">
         @for (c of rows(); track c.c.id) {
           <button type="button" class="card card-link card-btn" (click)="open(c.c)">
             <div class="card-row">

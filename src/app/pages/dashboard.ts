@@ -48,6 +48,8 @@ import { StatusBadge } from './status-badge';
         </a>
       }
 
+      <div class="dash-grid">
+      <div class="dash-col">
       <div class="section-head">
         <h2>Follow up today</h2>
         <span class="pill">{{ store.followUps().length }}</span>
@@ -87,6 +89,9 @@ import { StatusBadge } from './status-badge';
         </div>
       }
 
+      </div>
+
+      <div class="dash-col">
       <div class="section-head">
         <h2>Recent quotes</h2>
         <a routerLink="/quotes" class="link">See all</a>
@@ -106,6 +111,8 @@ import { StatusBadge } from './status-badge';
             </div>
           </a>
         }
+      </div>
+      </div>
       </div>
     </section>
   `,

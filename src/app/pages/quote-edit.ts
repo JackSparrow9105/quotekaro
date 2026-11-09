@@ -15,6 +15,8 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
         <h1 class="page-title">{{ draft().id ? 'Edit ' + draft().number : 'New quote' }}</h1>
       </div>
 
+      <div class="edit-layout">
+      <div class="edit-main">
       <div class="form-card">
         <div class="field">
           <label for="cust">Customer</label>
@@ -93,6 +95,9 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
         </select>
       </div>
 
+      </div>
+
+      <aside class="edit-side">
       <div class="form-card">
         <div class="field">
           <label for="fu">Follow-up reminder</label>
@@ -112,15 +117,18 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
           <div class="row"><span>CGST + SGST</span><span>{{ money(t().cgst + t().sgst) }}</span></div>
         }
       </div>
+
+      <div class="action-bar no-print">
+        <div>
+          <div class="bar-label">Total</div>
+          <div class="bar-total">{{ money(t().total) }}</div>
+        </div>
+        <button type="button" class="btn btn-primary" (click)="save()" [disabled]="!canSave()">Save quote</button>
+      </div>
+      </aside>
+      </div>
     </section>
 
-    <div class="action-bar no-print">
-      <div>
-        <div class="bar-label">Total</div>
-        <div class="bar-total">{{ money(t().total) }}</div>
-      </div>
-      <button type="button" class="btn btn-primary" (click)="save()" [disabled]="!canSave()">Save quote</button>
-    </div>
   `,
 })
 export class QuoteEdit {

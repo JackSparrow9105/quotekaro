@@ -10,6 +10,8 @@ import { Company, STATES, Store } from '../store';
       <h1 class="page-title">Business &amp; branding</h1>
       <p class="page-sub">This appears on every quote and proforma you send.</p>
 
+      <div class="edit-layout">
+      <div class="edit-main">
       <div class="form-card" (input)="saved.set(false)" (change)="saved.set(false)" (click)="onClickInside($event)">
         <div class="logo-row">
           <div class="logo-preview" [style.background]="c.logo ? '#fff' : c.color">
@@ -61,6 +63,9 @@ import { Company, STATES, Store } from '../store';
         <div class="field"><label for="s-terms">Default terms &amp; conditions</label><textarea id="s-terms" rows="5" [(ngModel)]="c.terms"></textarea></div>
       </div>
 
+      </div>
+
+      <aside class="edit-side">
       <div class="form-card">
         <div class="card-title">Demo data</div>
         <p class="card-meta">Start over with the sample customers, products and quotes.</p>
@@ -73,12 +78,15 @@ import { Company, STATES, Store } from '../store';
           <button type="button" class="btn btn-ghost danger btn-sm" (click)="confirmReset.set(true)">Reset demo data</button>
         }
       </div>
+
+      <div class="action-bar no-print">
+        <div class="bar-label">{{ saved() ? 'Saved' : 'Unsaved changes' }}</div>
+        <button type="button" class="btn btn-primary" (click)="save()">Save</button>
+      </div>
+      </aside>
+      </div>
     </section>
 
-    <div class="action-bar no-print">
-      <div class="bar-label">{{ saved() ? 'Saved' : 'Unsaved changes' }}</div>
-      <button type="button" class="btn btn-primary" (click)="save()">Save</button>
-    </div>
   `,
 })
 export class Settings {

@@ -8,14 +8,14 @@ type Filter = 'all' | 'low' | 'services';
   selector: 'app-inventory',
   imports: [FormsModule],
   template: `
-    <section class="page">
+    <section class="page page-split">
       <div class="page-head">
         <h1 class="page-title">Inventory</h1>
         <button type="button" class="btn btn-primary btn-sm" (click)="openNew()">+ Add product</button>
       </div>
 
       @if (editing(); as e) {
-        <div class="form-card sheet">
+        <div class="form-card sheet split-panel">
           <div class="sheet-head">
             <div class="card-title">{{ e.id ? 'Edit product' : 'New product' }}</div>
             <button type="button" class="icon-btn" aria-label="Close" (click)="close()">
@@ -156,7 +156,7 @@ type Filter = 'all' | 'low' | 'services';
         <button type="button" class="chip" role="tab" [class.active]="filter() === 'services'" [attr.aria-selected]="filter() === 'services'" (click)="filter.set('services')">Services <span class="chip-count">{{ serviceCount() }}</span></button>
       </div>
 
-      <div class="list">
+      <div class="list list-grid">
         @for (p of list(); track p.id) {
           <button type="button" class="card card-link card-btn" (click)="open(p)">
             <div class="card-row">

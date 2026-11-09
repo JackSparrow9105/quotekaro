@@ -255,6 +255,93 @@ img { max-width: 100%; }
 .low-stock-title { font-weight: 700; color: #6b3a00; }
 .low-stock-card .link { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; flex: none; }
 
+/* ---------- layout wrappers (neutral on mobile) ---------- */
+.tab-new-label { display: none; }
+
+/* ---------- desktop / web (≥1024px) — mobile styles above stay untouched ---------- */
+@media screen and (min-width: 1024px) {
+  :root { --side-w: 248px; }
+
+  /* shell: bottom tab bar becomes a left sidebar */
+  .topbar { padding: 10px 24px; }
+  .tabbar {
+    top: 64px; bottom: 0; right: auto; width: var(--side-w); height: auto; padding: 20px 14px;
+    display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+    border-top: 0; border-right: 1px solid var(--line);
+  }
+  .tab {
+    flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 46px; padding: 0 14px;
+    border-radius: 12px; font-size: 15px; color: var(--ink-2);
+  }
+  .tab:hover { background: var(--ground); color: var(--ink); }
+  .tab.active { background: var(--ground); color: var(--ink); }
+  .tab-new {
+    order: -1; margin-bottom: 14px; background: var(--brand); color: var(--ink);
+    justify-content: center; font-weight: 700;
+  }
+  .tab-new:hover { background: var(--brand); color: var(--ink); filter: brightness(0.95); }
+  .tab-new-btn { width: auto; height: auto; margin: 0; box-shadow: none; background: transparent !important; }
+  .tab-new-btn svg { width: 20px; height: 20px; stroke: var(--ink); }
+  .tab-new-label { display: inline; }
+  .tab-dot { position: static; margin-left: auto; }
+
+  .main { max-width: 1240px; margin: 0 0 0 var(--side-w); padding-bottom: 48px; }
+  @media (min-width: 1488px) { .main { margin-left: calc(var(--side-w) + (100vw - var(--side-w) - 1240px) / 2); } }
+  .page { padding: 32px 40px 16px; }
+  .page-with-bar { padding-bottom: 104px; }
+  .page-title { font-size: 34px; }
+
+  .toast { bottom: 28px; left: calc(50% + var(--side-w) / 2); }
+
+  /* dashboard: two columns under the stats */
+  .stats { gap: 14px; }
+  .stat { padding: 18px 20px; }
+  .stat-value { font-size: 38px; }
+  .dash-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+
+  /* lists become card grids */
+  .list-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .list-grid > .empty { grid-column: 1 / -1; }
+  .search { max-width: 520px; }
+
+  /* customers / inventory: editor opens as a side panel next to the list */
+  .page-split:has(> .split-panel) {
+    display: grid; grid-template-columns: minmax(0, 1fr) 440px; column-gap: 28px; align-content: start;
+  }
+  .page-split:has(> .split-panel) > * { grid-column: 1; }
+  .page-split:has(> .split-panel) > .page-head { grid-column: 1 / -1; }
+  .page-split > .split-panel {
+    grid-column: 2; grid-row: 2 / span 20; align-self: start;
+    position: sticky; top: 84px; max-height: calc(100vh - 104px); overflow-y: auto;
+  }
+  .page-split:has(> .split-panel) .list-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .edit-main .grid-3 { grid-template-columns: repeat(3, minmax(0, 160px)); }
+  .doc { padding: 32px 36px; font-size: 14px; }
+  .edit-side .action-bar { left: var(--side-w); bottom: 0; }
+}
+
+/* wide desktop (≥1280px): side panels next to the document / form */
+@media screen and (min-width: 1280px) {
+  .page-with-bar { padding-bottom: 16px; }
+  /* quote / proforma detail: document left, actions panel right */
+  .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+  .detail-side { grid-column: 2; grid-row: 1; position: sticky; top: 84px; }
+  .detail-main { grid-column: 1; grid-row: 1; }
+  .detail-side .actions { grid-template-columns: 1fr; }
+  .detail-side .form-card { margin-bottom: 0; }
+  .detail-main .doc { margin-top: 0; }
+
+  /* new/edit quote + settings: form left, summary + save right */
+  .edit-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+  .edit-main > .section-head:first-child { margin-top: 0; }
+  .edit-side { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 12px; }
+  .edit-side .form-card, .edit-side .totals-card { margin-bottom: 0; }
+  .edit-side .action-bar {
+    position: static; box-shadow: none; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
+  }
+}
+
 /* ---------- print = PDF ---------- */
 @media print {
   @page { size: A4; margin: 12mm; }

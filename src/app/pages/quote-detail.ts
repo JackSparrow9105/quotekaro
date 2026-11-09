@@ -25,6 +25,8 @@ import { isEmbedded } from '../memory-location';
           <app-status-badge [status]="q.status" />
         </div>
 
+        <div class="detail-layout">
+        <aside class="detail-side no-print">
         <div class="actions no-print">
           <a class="btn btn-whatsapp" [href]="shareLink()" target="_blank" rel="noopener" (click)="onShared()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>
@@ -95,6 +97,9 @@ import { isEmbedded } from '../memory-location';
           }
         </div>
 
+        </aside>
+
+        <div class="detail-main">
         <app-doc-view
           kind="Quotation"
           [number]="q.number"
@@ -105,6 +110,8 @@ import { isEmbedded } from '../memory-location';
           [items]="q.items"
           [notes]="q.notes"
         />
+        </div>
+        </div>
       </section>
     } @else {
       <section class="page"><div class="empty">Quote not found. <a routerLink="/quotes">Back to quotes</a></div></section>
