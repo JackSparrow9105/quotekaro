@@ -478,6 +478,48 @@ img { max-width: 100%; }
   }
 }
 
+/* ---------- motion (subtle; disabled for reduce-motion) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes qk-item-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes qk-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes qk-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes qk-toast { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes qk-panel { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  @keyframes qk-pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); } 70% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
+  /* screens fade in softly (opacity only: transforms would break fixed bars) on navigation */
+  .page { animation: qk-fade 0.3s ease-out backwards; }
+
+  /* cards, stats and list rows cascade in */
+  .stats > *, .list > *, .hx-stagger > * { animation: qk-item-in 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+  .stats > :nth-child(2), .list > :nth-child(2), .hx-stagger > :nth-child(2) { animation-delay: 0.04s; }
+  .stats > :nth-child(3), .list > :nth-child(3), .hx-stagger > :nth-child(3) { animation-delay: 0.08s; }
+  .stats > :nth-child(4), .list > :nth-child(4), .hx-stagger > :nth-child(4) { animation-delay: 0.12s; }
+  .stats > :nth-child(5), .list > :nth-child(5), .hx-stagger > :nth-child(5) { animation-delay: 0.16s; }
+  .stats > :nth-child(6), .list > :nth-child(6), .hx-stagger > :nth-child(6) { animation-delay: 0.2s; }
+  .list > :nth-child(n + 7), .hx-stagger > :nth-child(n + 7) { animation-delay: 0.24s; }
+
+  /* bars fill from the left */
+  .meter span, .hx-bar-fill { transform-origin: left center; animation: qk-grow 0.7s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+
+  /* switching PDF layout cross-fades the document */
+  article.doc { animation: qk-fade 0.25s ease-out backwards; }
+
+  .toast { animation: qk-toast 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+  .split-panel, .sheet { animation: qk-panel 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+  .tab-dot { animation: qk-pulse 2s ease-out 3; }
+
+  /* touch feedback + hover */
+  .btn, .chip, .lp-opt, .tab, .card-link, .stat, .seg button, .tab-new-btn {
+    transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.18s ease, color 0.15s ease;
+  }
+  .btn:not(:disabled):active, .chip:active, .lp-opt:active, .card-link:active, .tab-new-btn:active { transform: scale(0.97); }
+  @media (hover: hover) {
+    .card-link:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15, 27, 45, 0.07); }
+    .lp-opt:hover { transform: translateY(-2px); }
+  }
+}
+
 /* ---------- print = PDF ---------- */
 @media print {
   @page { size: A4; margin: 12mm; }
