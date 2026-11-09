@@ -387,9 +387,6 @@ img { max-width: 100%; }
 .stock-warn { font-size: 13px; font-weight: 700; color: var(--lost); }
 .stock-alert { background: var(--lost-bg); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
 .stock-alert-title { font-weight: 700; color: var(--lost); }
-.low-stock-card { display: flex; align-items: center; gap: 12px; margin-top: 12px; background: #fff1d6; border: 1px solid #f1d39a; border-radius: var(--radius); padding: 14px 16px; }
-.low-stock-title { font-weight: 700; color: #6b3a00; }
-.low-stock-card .link { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; flex: none; }
 
 /* ---------- layout wrappers (neutral on mobile) ---------- */
 .tab-new-label { display: none; }
@@ -433,7 +430,6 @@ img { max-width: 100%; }
   .stats { gap: 14px; }
   .stat { padding: 18px 20px; }
   .stat-value { font-size: 38px; }
-  .dash-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 
   /* lists become card grids */
   .list-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -476,6 +472,74 @@ img { max-width: 100%; }
   .edit-side .action-bar {
     position: static; box-shadow: none; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
   }
+}
+
+/* ---------- home overview ---------- */
+.hp-kpi-ico svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.hp-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hp-kpi { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; min-width: 0; }
+.hp-kpi-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 10px; }
+.hp-kpi-ico svg { width: 18px; height: 18px; }
+.hp-c-sent { background: var(--sent-bg); color: var(--sent); }
+.hp-c-won { background: var(--won-bg); color: var(--won); }
+.hp-c-brand { background: #fff1d6; color: #9a5a00; }
+.hp-c-ink { background: var(--draft-bg); color: var(--ink); }
+.hp-kpi-label { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+.hp-kpi-val { font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-kpi-sub { font-size: 12px; color: var(--ink-3); }
+.hp-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-top: 12px; min-width: 0; }
+.hp-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.hp-panel-head h2 { font-size: 16px; margin: 0; }
+.hp-stack { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--ground); gap: 2px; }
+.hp-stack span { height: 100%; }
+.hp-seg-draft { background: #b9b3a5; }
+.hp-seg-sent { background: var(--sent); }
+.hp-seg-won { background: var(--won); }
+.hp-seg-lost { background: var(--lost); }
+.hp-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.hp-leg { display: flex; gap: 8px; align-items: flex-start; }
+.hp-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; margin-top: 5px; }
+.hp-leg-name { font-size: 13px; font-weight: 700; text-transform: capitalize; }
+.hp-leg-val { font-size: 14px; font-variant-numeric: tabular-nums; }
+.hp-key { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); }
+.hp-key .hp-sw { margin: 0 0 0 6px; }
+.hp-q { background: #cdd9ee; }
+.hp-w { background: var(--won); }
+.hp-chart { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end; height: 170px; }
+.hp-col { display: flex; flex-direction: column; align-items: center; height: 100%; min-width: 0; }
+.hp-bars { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.hp-bar { width: 38%; max-width: 26px; min-height: 2px; border-radius: 6px 6px 0 0; transform-origin: bottom; }
+.hp-col-val { font-size: 12px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.hp-col-label { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.hp-top { display: flex; flex-direction: column; gap: 12px; }
+.hp-top-line { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.hp-top-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-track { height: 8px; border-radius: 99px; background: var(--ground); margin: 6px 0 2px; overflow: hidden; }
+.hp-track span { display: block; height: 100%; border-radius: 99px; background: var(--brand); }
+.hp-table { display: flex; flex-direction: column; }
+.hp-tr { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.hp-tr:first-child { border-top: 0; padding-top: 0; }
+.hp-tr:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.hp-amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+.hp-inv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hp-inv div { display: flex; flex-direction: column; background: var(--ground); border-radius: 12px; padding: 10px; min-width: 0; }
+.hp-inv b { font-size: 15px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hp-warn { background: #fff1d6 !important; }
+.hp-low { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; padding: 8px 2px 0; }
+.hp-low b { color: var(--lost); }
+
+@media (min-width: 640px) {
+  .hp-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hp-legend { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media screen and (min-width: 1024px) {
+  .hp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 4px; }
+  .hp-grid .hp-panel { margin-top: 12px; }
+  .hp-panel { padding: 20px; }
+  .hp-kpi { padding: 18px; }
+  .hp-kpi-val { font-size: 26px; }
 }
 
 /* ---------- motion (subtle; disabled for reduce-motion) ---------- */
