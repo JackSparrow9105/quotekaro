@@ -1,6 +1,6 @@
 {
   "configVersion": 1,
-  "timestamp": 1793870296259,
+  "timestamp": 1794205753426,
   "index": "/quotekaro/index.html",
   "assetGroups": [
     {
@@ -13,9 +13,9 @@
       "urls": [
         "/quotekaro/favicon.ico",
         "/quotekaro/index.html",
-        "/quotekaro/main-VMYTVY7A.js",
+        "/quotekaro/main-U57T7DFM.js",
         "/quotekaro/manifest.webmanifest",
-        "/quotekaro/styles-GUR3FNK7.css"
+        "/quotekaro/styles-IH5U4XPG.css"
       ],
       "patterns": []
     },
@@ -50,10 +50,10 @@
     "/quotekaro/icons/icon-512x512.png": "84fc4c6eae7997e3ea9b77ff85545f243df8b1ef",
     "/quotekaro/icons/icon-72x72.png": "2cbd80ef5b30ac1c2775c4ae2ef0eb1fe13a46f0",
     "/quotekaro/icons/icon-96x96.png": "3276c1aadddba0e0a83d0413f5987b6255da8c0d",
-    "/quotekaro/index.html": "69cd36f31d7b1b38a3abd29ee775e0f9abcd37b6",
-    "/quotekaro/main-VMYTVY7A.js": "4965ae5381398f27e6fc755e8d1791e68ba5a659",
+    "/quotekaro/index.html": "3aa8e15ed5e0d06e8eb6be99f38104fbd21f01bc",
+    "/quotekaro/main-U57T7DFM.js": "12ac5fc6e6fe3ba637f7d3951e2d981114d81757",
     "/quotekaro/manifest.webmanifest": "5a9a56bc13870fe879f4d659572f4ef8da27fb92",
-    "/quotekaro/styles-GUR3FNK7.css": "5915871d096595fcf7e9b7d2e6efced9659e2bf9"
+    "/quotekaro/styles-IH5U4XPG.css": "c5d2de7de2c37be4b93f840677885e28bb947abc"
   },
   "navigationUrls": [
     {
