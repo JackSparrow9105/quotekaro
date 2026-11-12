@@ -21,7 +21,7 @@ import { isEmbedded } from '../memory-location';
           </a>
           <div class="grow">
             <h1 class="page-title">{{ q.number }}</h1>
-            <div class="card-meta">{{ customer()?.name }}</div>
+            <div class="card-meta"><a [routerLink]="['/customers', q.customerId]" class="link-plain">{{ customer()?.name }}</a>@if (q.preparedBy) { · by {{ q.preparedBy }} }</div>
           </div>
           <app-status-badge [status]="q.status" />
         </div>
@@ -96,6 +96,17 @@ import { isEmbedded } from '../memory-location';
           @if (q.revision > 1) {
             <div class="card-meta">Revision {{ q.revision }} — prices changed after it was sent.</div>
           }
+          @if (q.status === 'won') {
+            <div class="dl-mini">
+              <span class="grow">
+                <b>Delivery:</b> {{ delivered() }} of {{ ordered() }} units dispatched
+                @if (challanCount()) { · {{ challanCount() }} {{ challanCount() === 1 ? 'challan' : 'challans' }} }
+              </span>
+              @if (ordered() > delivered()) {
+                <a class="btn btn-ghost btn-sm" routerLink="/challans/new" [queryParams]="{ quote: q.id }">+ Challan</a>
+              }
+            </div>
+          }
         </div>
 
           <app-layout-chooser [(value)]="layout" />
@@ -135,6 +146,16 @@ export class QuoteDetail {
   protected readonly toast = signal('');
   protected readonly layout = signal<DocTemplate | null>(null);
   protected readonly shortages = computed(() => this.store.shortages(this.quote()?.items ?? []));
+  private readonly delivery = computed(() => {
+    this.store.challans();
+    return this.store.deliveryFor(this.id());
+  });
+  protected readonly ordered = computed(() => this.delivery().reduce((s, r) => s + r.ordered, 0));
+  protected readonly delivered = computed(() => this.delivery().reduce((s, r) => s + Math.min(r.delivered, r.ordered), 0));
+  protected readonly challanCount = computed(() => {
+    this.store.challans();
+    return this.store.challansFor(this.id()).length;
+  });
 
   private flash(msg: string) {
     this.toast.set(msg);

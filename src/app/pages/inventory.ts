@@ -1,17 +1,26 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Product, Store, fmtDate, inr } from '../store';
+import { MoveType, Product, Store, fmtDate, inr, today } from '../store';
+import { ScanButton } from './scan-button';
+import { downloadCsv } from './csv';
 
 type Filter = 'all' | 'low' | 'services';
+type View = 'products' | 'register';
+type MoveFilter = 'all' | MoveType;
 
 @Component({
   selector: 'app-inventory',
-  imports: [FormsModule],
+  imports: [FormsModule, ScanButton],
   template: `
     <section class="page page-split">
       <div class="page-head">
         <h1 class="page-title">Inventory</h1>
         <button type="button" class="btn btn-primary btn-sm" (click)="openNew()">+ Add product</button>
+      </div>
+
+      <div class="seg seg-2 inv-view" role="tablist" aria-label="Inventory view">
+        <button type="button" role="tab" [attr.aria-selected]="view() === 'products'" [class.on]="view() === 'products'" (click)="view.set('products')">Products</button>
+        <button type="button" role="tab" [attr.aria-selected]="view() === 'register'" [class.on]="view() === 'register'" (click)="view.set('register'); close()">Stock register</button>
       </div>
 
       @if (editing(); as e) {
@@ -43,8 +52,22 @@ type Filter = 'all' | 'low' | 'services';
             @if (action() === 'in') {
               <div class="grid-2">
                 <div class="field"><label for="in-qty">Quantity received ({{ e.unit }})</label><input id="in-qty" type="number" inputmode="decimal" min="0" [(ngModel)]="moveQty" /></div>
-                <div class="field"><label for="in-note">Supplier / bill no.</label><input id="in-note" placeholder="e.g. Bill 2231, Ravi Traders" [(ngModel)]="moveNote" /></div>
+                <div class="field"><label for="in-date">Date</label><input id="in-date" type="date" [(ngModel)]="buy.date" /></div>
               </div>
+              <div class="grid-2">
+                <div class="field"><label for="in-sup">Supplier</label><input id="in-sup" placeholder="e.g. Ravi Traders" list="suppliers" [(ngModel)]="buy.supplier" /></div>
+                <div class="field"><label for="in-bill">Bill no.</label><input id="in-bill" placeholder="e.g. 2231" [(ngModel)]="buy.billNo" /></div>
+              </div>
+              <datalist id="suppliers">
+                @for (sp of suppliers(); track sp) { <option [value]="sp"></option> }
+              </datalist>
+              <div class="field">
+                <label for="in-rate">Purchase cost per {{ e.unit }} ₹ (optional)</label>
+                <input id="in-rate" type="number" inputmode="decimal" min="0" [(ngModel)]="buy.rate" />
+              </div>
+              @if (+moveQty > 0 && +buy.rate > 0) {
+                <div class="card-meta">Purchase value {{ money(+moveQty * +buy.rate) }} · margin at selling rate {{ margin(e.rate, +buy.rate) }}%</div>
+              }
               <button type="button" class="btn btn-primary" [disabled]="!(+moveQty > 0)" (click)="doStockIn(e.id)">Add {{ +moveQty || '' }} {{ e.unit }} to stock</button>
             } @else {
               <div class="grid-2">
@@ -64,6 +87,27 @@ type Filter = 'all' | 'low' | 'services';
           }
 
           <div class="field"><label for="p-name">Product or service</label><input id="p-name" [(ngModel)]="e.name" /></div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="p-sku">SKU / item code</label>
+              <div class="field-row">
+                <input id="p-sku" autocapitalize="characters" [(ngModel)]="e.sku" />
+                @if (!e.sku && e.name) {
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="e.sku = suggestSku(e.name)">Auto</button>
+                }
+              </div>
+            </div>
+            <div class="field">
+              <label for="p-bar">Barcode</label>
+              <div class="field-row">
+                <input id="p-bar" inputmode="numeric" [(ngModel)]="e.barcode" />
+                <app-scan-button (scanned)="e.barcode = $event" />
+              </div>
+            </div>
+          </div>
+          @if (codeClash(e); as other) {
+            <div class="stock-warn">That code is already used by "{{ other }}".</div>
+          }
           <div class="grid-2">
             <div class="field"><label for="p-hsn">HSN / SAC</label><input id="p-hsn" [(ngModel)]="e.hsn" /></div>
             <div class="field">
@@ -118,7 +162,7 @@ type Filter = 'all' | 'low' | 'services';
                   <span class="move-qty" [class.plus]="m.qty > 0" [class.minus]="m.qty < 0">{{ m.qty > 0 ? '+' : '' }}{{ m.qty }}</span>
                   <div class="grow">
                     <div class="move-note">{{ m.note }}</div>
-                    <div class="card-meta">{{ typeLabel[m.type] }} · {{ d(m.date) }}</div>
+                    <div class="card-meta">{{ typeLabel[m.type] }} · {{ d(m.date) }}{{ m.rate ? ' · ' + money(m.rate) + '/' + e.unit : '' }}</div>
                   </div>
                 </li>
               } @empty {
@@ -129,6 +173,52 @@ type Filter = 'all' | 'low' | 'services';
         </div>
       }
 
+      @if (view() === 'register') {
+        <div class="inv-summary">
+          <div>
+            <div class="stat-label">Purchases · 30 days</div>
+            <div class="inv-value">{{ money(purchase30()) }}</div>
+          </div>
+          <div>
+            <div class="stat-label">Units in</div>
+            <div class="inv-value">{{ unitsIn30() }}</div>
+          </div>
+          <div>
+            <div class="stat-label">Units out</div>
+            <div class="inv-value">{{ unitsOut30() }}</div>
+          </div>
+        </div>
+
+        <div class="chips-row">
+          <div class="chips" role="tablist" aria-label="Filter stock movements">
+            @for (f of moveFilters; track f.key) {
+              <button type="button" class="chip" role="tab" [class.active]="moveFilter() === f.key" [attr.aria-selected]="moveFilter() === f.key" (click)="moveFilter.set(f.key)">{{ f.label }}</button>
+            }
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="exportRegister()">Export CSV</button>
+        </div>
+
+        <ul class="moves reg">
+          @for (m of register(); track m.id) {
+            <li class="move">
+              <span class="move-qty" [class.plus]="m.qty > 0" [class.minus]="m.qty < 0">{{ m.qty > 0 ? '+' : '' }}{{ m.qty }}</span>
+              <div class="grow">
+                <div class="move-note">{{ productName(m.productId) }}</div>
+                <div class="card-meta">{{ m.note }}</div>
+              </div>
+              <div class="right">
+                <div class="card-meta">{{ d(m.date) }}</div>
+                @if (m.rate) {
+                  <div class="card-meta">{{ money(m.rate * m.qty) }}</div>
+                }
+                <span class="badge" [class.badge-won]="m.type === 'in'" [class.badge-lost]="m.type === 'out'" [class.badge-draft]="m.type === 'adjust'">{{ typeLabel[m.type] }}</span>
+              </div>
+            </li>
+          } @empty {
+            <li class="empty">No stock movements yet.</li>
+          }
+        </ul>
+      } @else {
       <div class="inv-summary">
         <div>
           <div class="stat-label">Stock value</div>
@@ -144,11 +234,14 @@ type Filter = 'all' | 'low' | 'services';
         </div>
       </div>
 
+      <div class="search-row">
       <label class="search">
         <span class="sr-only">Search products</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" placeholder="Search product or HSN" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+        <input type="search" placeholder="Search name, SKU, barcode or HSN" [ngModel]="q()" (ngModelChange)="q.set($event)" (keydown.enter)="openByCode(q())" />
       </label>
+      <app-scan-button (scanned)="onScan($event)" />
+      </div>
 
       <div class="chips" role="tablist" aria-label="Filter products">
         <button type="button" class="chip" role="tab" [class.active]="filter() === 'all'" [attr.aria-selected]="filter() === 'all'" (click)="filter.set('all')">All <span class="chip-count">{{ store.products().length }}</span></button>
@@ -162,7 +255,7 @@ type Filter = 'all' | 'low' | 'services';
             <div class="card-row">
               <div class="grow">
                 <div class="card-title">{{ p.name }}</div>
-                <div class="card-meta">HSN {{ p.hsn }} · {{ money(p.rate) }}/{{ p.unit }} · GST {{ p.gst }}%</div>
+                <div class="card-meta">{{ p.sku ? p.sku + ' · ' : '' }}HSN {{ p.hsn }} · {{ money(p.rate) }}/{{ p.unit }} · GST {{ p.gst }}%</div>
               </div>
               <div class="right">
                 @if (p.trackStock) {
@@ -184,6 +277,7 @@ type Filter = 'all' | 'low' | 'services';
           <div class="empty">{{ filter() === 'low' ? 'Nothing is running low.' : 'No products match.' }}</div>
         }
       </div>
+      }
     </section>
 
     @if (toast()) {
@@ -195,6 +289,15 @@ export class Inventory {
   protected readonly store = inject(Store);
   protected readonly editing = signal<Product | null>(null);
   protected readonly action = signal<'in' | 'adjust'>('in');
+  protected readonly view = signal<View>('products');
+  protected readonly moveFilter = signal<MoveFilter>('all');
+  protected readonly moveFilters: { key: MoveFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'in', label: 'Purchases / in' },
+    { key: 'out', label: 'Sold' },
+    { key: 'adjust', label: 'Adjusted' },
+  ];
+  protected buy = { date: today(0), supplier: '', billNo: '', rate: '' as number | '' };
   protected readonly filter = signal<Filter>('all');
   protected readonly q = signal('');
   protected readonly toast = signal('');
@@ -227,8 +330,30 @@ export class Inventory {
         if (this.filter() === 'services') return !p.trackStock;
         return true;
       })
-      .filter((p) => !term || p.name.toLowerCase().includes(term) || p.hsn.includes(term));
+      .filter(
+        (p) =>
+          !term ||
+          p.name.toLowerCase().includes(term) ||
+          p.hsn.includes(term) ||
+          (p.sku ?? '').toLowerCase().includes(term) ||
+          (p.barcode ?? '').includes(term),
+      );
   });
+
+  protected readonly register = computed(() =>
+    [...this.store.moves()]
+      .filter((m) => this.moveFilter() === 'all' || m.type === this.moveFilter())
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
+  );
+  private readonly last30 = computed(() => this.store.moves().filter((m) => m.date >= today(-30)));
+  protected readonly purchase30 = computed(() =>
+    this.last30()
+      .filter((m) => m.type === 'in' && m.rate)
+      .reduce((s, m) => s + (m.rate ?? 0) * m.qty, 0),
+  );
+  protected readonly unitsIn30 = computed(() => this.last30().filter((m) => m.type === 'in').reduce((s, m) => s + m.qty, 0));
+  protected readonly unitsOut30 = computed(() => this.last30().filter((m) => m.type === 'out').reduce((s, m) => s - m.qty, 0));
+  protected readonly suppliers = computed(() => [...new Set(this.store.moves().map((m) => m.supplier).filter((x): x is string => !!x))]);
 
   private flash(msg: string) {
     this.toast.set(msg);
@@ -238,6 +363,7 @@ export class Inventory {
   private resetMove() {
     this.moveQty = '';
     this.moveNote = this.action() === 'adjust' ? 'Physical stock count' : '';
+    this.buy = { date: today(0), supplier: '', billNo: '', rate: '' };
   }
 
   open(p: Product) {
@@ -247,8 +373,9 @@ export class Inventory {
     this.resetMove();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  openNew() {
-    this.editing.set({ id: '', name: '', hsn: '', unit: 'pcs', rate: 0, gst: 18, trackStock: true, stock: 0, reorderLevel: 5 });
+  openNew(barcode = '') {
+    this.view.set('products');
+    this.editing.set({ id: '', name: '', hsn: '', unit: 'pcs', rate: 0, gst: 18, trackStock: true, stock: 0, reorderLevel: 5, sku: '', barcode });
     this.confirmDelete.set(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -258,7 +385,7 @@ export class Inventory {
 
   doStockIn(id: string) {
     const qty = +this.moveQty;
-    this.store.stockIn(id, qty, this.moveNote.trim());
+    this.store.stockIn(id, qty, '', { date: this.buy.date, supplier: this.buy.supplier, billNo: this.buy.billNo, rate: +this.buy.rate || 0 });
     this.flash(`Added ${qty} to stock`);
     this.resetMove();
   }
@@ -273,7 +400,14 @@ export class Inventory {
   save() {
     const e = this.editing();
     if (!e) return;
-    this.store.saveProduct({ ...e, rate: +e.rate, stock: +e.stock || 0, reorderLevel: +e.reorderLevel || 0 });
+    this.store.saveProduct({
+      ...e,
+      rate: +e.rate,
+      stock: +e.stock || 0,
+      reorderLevel: +e.reorderLevel || 0,
+      sku: (e.sku ?? '').trim().toUpperCase(),
+      barcode: (e.barcode ?? '').trim(),
+    });
     this.flash(e.id ? 'Product updated' : 'Product added');
     this.editing.set(null);
   }
@@ -281,6 +415,62 @@ export class Inventory {
     this.store.deleteProduct(id);
     this.editing.set(null);
     this.flash('Product deleted');
+  }
+
+  /** Open the product whose SKU/barcode exactly matches (USB scanners type the code + Enter). */
+  openByCode(code: string) {
+    const p = this.store.productByCode(code);
+    if (p) {
+      this.q.set('');
+      this.open(p);
+    }
+  }
+
+  onScan(code: string) {
+    const p = this.store.productByCode(code);
+    if (p) {
+      this.open(p);
+    } else {
+      this.openNew(code);
+      this.flash(`New product for barcode ${code}`);
+    }
+  }
+
+  /** e.g. "Copper strip 25x3 mm" → "CS-25X3" style codes, kept unique. */
+  suggestSku(name: string) {
+    const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+    const letters = words.filter((w) => /^[A-Z]/.test(w)).slice(0, 3).map((w) => w[0]).join('');
+    const num = words.find((w) => /\d/.test(w)) ?? '';
+    let base = [letters || 'ITEM', num].filter(Boolean).join('-').slice(0, 14);
+    let code = base;
+    for (let n = 2; this.store.productByCode(code); n++) code = `${base}-${n}`;
+    return code;
+  }
+
+  /** Name of another product already using this SKU or barcode. */
+  codeClash(e: Product): string {
+    for (const code of [e.sku, e.barcode]) {
+      const other = code ? this.store.productByCode(code) : undefined;
+      if (other && other.id !== e.id) return other.name;
+    }
+    return '';
+  }
+
+  margin(sell: number, cost: number) {
+    return sell > 0 ? Math.round(((sell - cost) / sell) * 100) : 0;
+  }
+
+  productName(id: string) {
+    return this.store.product(id)?.name ?? 'Deleted product';
+  }
+
+  exportRegister() {
+    const rows: (string | number)[][] = [['Date', 'Product', 'SKU', 'Type', 'Qty', 'Unit', 'Cost/unit', 'Value', 'Supplier', 'Bill no.', 'Note']];
+    for (const m of this.register()) {
+      const p = this.store.product(m.productId);
+      rows.push([m.date, p?.name ?? '', p?.sku ?? '', this.typeLabel[m.type], m.qty, p?.unit ?? '', m.rate ?? '', m.rate ? m.rate * m.qty : '', m.supplier ?? '', m.billNo ?? '', m.note]);
+    }
+    downloadCsv(`stock-register-${today(0)}`, rows);
   }
 
   max0(n: number) {

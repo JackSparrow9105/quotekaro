@@ -3,12 +3,13 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { QuoteStatus, Store, fmtDate, inr } from '../store';
 import { StatusBadge } from './status-badge';
+import { PayBadge } from './pay-badge';
 
-type Filter = 'all' | QuoteStatus | 'proforma';
+type Filter = 'all' | QuoteStatus | 'proforma' | 'due' | 'challan';
 
 @Component({
   selector: 'app-quote-list',
-  imports: [RouterLink, FormsModule, StatusBadge],
+  imports: [RouterLink, FormsModule, StatusBadge, PayBadge],
   template: `
     <section class="page">
       <div class="page-head">
@@ -30,7 +31,31 @@ type Filter = 'all' | QuoteStatus | 'proforma';
         }
       </div>
 
-      @if (filter() === 'proforma') {
+      @if (filter() === 'due') {
+        <div class="due-banner">
+          <span>Outstanding</span><b>{{ money(store.outstanding()) }}</b>
+        </div>
+      }
+      @if (filter() === 'challan') {
+        <div class="list list-grid">
+          @for (c of challans(); track c.id) {
+            <a class="card card-link" [routerLink]="['/challans', c.id]">
+              <div class="card-row">
+                <div>
+                  <div class="card-title">{{ cust(c.customerId) }}</div>
+                  <div class="card-meta">{{ c.number }} · {{ d(c.date) }}{{ c.vehicle ? ' · ' + c.vehicle : '' }}</div>
+                </div>
+                <div class="right">
+                  <div class="card-amount">{{ c.items.length }} {{ c.items.length === 1 ? 'item' : 'items' }}</div>
+                  <span class="badge badge-sent">Challan</span>
+                </div>
+              </div>
+            </a>
+          } @empty {
+            <div class="empty">No delivery challans yet. Open a proforma and tap "Create delivery challan".</div>
+          }
+        </div>
+      } @else if (filter() === 'proforma' || filter() === 'due') {
         <div class="list list-grid">
           @for (p of proformas(); track p.id) {
             <a class="card card-link" [routerLink]="['/proforma', p.id]">
@@ -40,13 +65,16 @@ type Filter = 'all' | QuoteStatus | 'proforma';
                   <div class="card-meta">{{ p.number }} · {{ d(p.date) }}</div>
                 </div>
                 <div class="right">
-                  <div class="card-amount">{{ money(store.totals(p).total) }}</div>
-                  <span class="badge badge-proforma">Proforma</span>
+                  <div class="card-amount">{{ money(store.payInfo(p).total) }}</div>
+                  @if (store.payInfo(p).status === 'part') {
+                    <div class="card-meta pay-red">Due {{ money(store.payInfo(p).due) }}</div>
+                  }
+                  <app-pay-badge [status]="store.payInfo(p).status" />
                 </div>
               </div>
             </a>
           } @empty {
-            <div class="empty">No proforma invoices yet. Open a won quote and tap "Convert to proforma".</div>
+            <div class="empty">{{ filter() === 'due' ? 'Nothing pending. Every proforma is fully paid.' : 'No proforma invoices yet. Open a won quote and tap "Convert to proforma".' }}</div>
           }
         </div>
       } @else {
@@ -74,7 +102,9 @@ type Filter = 'all' | QuoteStatus | 'proforma';
 })
 export class QuoteList {
   protected readonly store = inject(Store);
-  protected readonly filter = signal<Filter>('all');
+  protected readonly filter = signal<Filter>(
+    (['due', 'proforma', 'challan'] as Filter[]).includes(history.state?.filter) ? history.state.filter : 'all',
+  );
   protected readonly q = signal('');
   protected readonly filters: { key: Filter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -83,6 +113,8 @@ export class QuoteList {
     { key: 'won', label: 'Won' },
     { key: 'lost', label: 'Lost' },
     { key: 'proforma', label: 'Proforma' },
+    { key: 'due', label: 'Payment due' },
+    { key: 'challan', label: 'Challans' },
   ];
 
   private matches(customerId: string, number: string) {
@@ -95,11 +127,17 @@ export class QuoteList {
     this.store.quotes().filter((x) => (this.filter() === 'all' || x.status === this.filter()) && this.matches(x.customerId, x.number)),
   );
   protected readonly proformas = computed(() =>
-    [...this.store.proformas()].reverse().filter((p) => this.matches(p.customerId, p.number)),
+    [...this.store.proformas()]
+      .reverse()
+      .filter((p) => this.matches(p.customerId, p.number))
+      .filter((p) => this.filter() !== 'due' || this.store.payInfo(p).due > 0),
   );
+  protected readonly challans = computed(() => this.store.challans().filter((c) => this.matches(c.customerId, c.number)));
 
   count(f: Filter) {
     if (f === 'proforma') return this.store.proformas().length;
+    if (f === 'due') return this.store.receivables().length;
+    if (f === 'challan') return this.store.challans().length;
     if (f === 'all') return this.store.quotes().length;
     return this.store.quotes().filter((x) => x.status === f).length;
   }

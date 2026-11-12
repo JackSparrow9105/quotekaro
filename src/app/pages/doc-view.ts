@@ -1,5 +1,6 @@
-import { Component, computed, inject, input } from '@angular/core';
-import { DocTemplate, LineItem, Store, fmtDate, inWords, inr } from '../store';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { DocTemplate, LineItem, Payment, Store, fmtDate, inWords, inr } from '../store';
 
 interface Line {
   i: LineItem;
@@ -19,7 +20,27 @@ interface HsnRow {
 /** Branded document used for both quotations and proforma invoices. Prints as the PDF. */
 @Component({
   selector: 'app-doc-view',
+  imports: [NgTemplateOutlet],
   template: `
+    <ng-template #paidRows>
+      @if (received() > 0) {
+        <div class="row doc-paid"><span>Received</span><span>− {{ money(received()) }}</span></div>
+        <div class="row doc-due"><span>Balance due</span><span>{{ money(due()) }}</span></div>
+      }
+    </ng-template>
+    <ng-template #upiBox>
+      @if (upiQr()) {
+        <div class="doc-upi">
+          <img [src]="upiQr()" alt="UPI payment QR code" class="doc-upi-qr" />
+          <div>
+            <div class="doc-label">Scan to pay with any UPI app</div>
+            <div class="doc-strong">{{ money(due()) }}</div>
+            <div class="doc-small">UPI ID: {{ company().upiId }}</div>
+          </div>
+        </div>
+      }
+    </ng-template>
+
     @switch (tpl()) {
       <!-- ===================== MODERN ===================== -->
       @case ('modern') {
@@ -105,6 +126,7 @@ interface HsnRow {
               <div class="tm-box">
                 <div class="doc-label">Bank details</div>
                 <div class="doc-small">{{ company().bank }}</div>
+                <ng-container [ngTemplateOutlet]="upiBox" />
               </div>
               <div class="tm-box">
                 <div class="doc-label">Terms &amp; conditions</div>
@@ -127,6 +149,7 @@ interface HsnRow {
                 <div class="row"><span>Round off</span><span>{{ signed(roundOff()) }}</span></div>
               }
               <div class="tm-grand"><span>Total</span><span>{{ money(t().total) }}</span></div>
+              <ng-container [ngTemplateOutlet]="paidRows" />
             </div>
           </section>
 
@@ -245,6 +268,7 @@ interface HsnRow {
               <div class="tg-cell">
                 <div class="tg-label">Amount chargeable (in words)</div>
                 <div class="tg-words">{{ words() }}</div>
+                <ng-container [ngTemplateOutlet]="upiBox" />
               </div>
               <div class="tg-cell tg-pad0">
                 <div class="tg-tot">
@@ -261,6 +285,7 @@ interface HsnRow {
                   }
                   <div><span>Round off</span><span>{{ signedNum(roundOff()) }}</span></div>
                   <div class="tg-grand"><span>Grand total</span><span>{{ money(t().total) }}</span></div>
+                  <ng-container [ngTemplateOutlet]="paidRows" />
                 </div>
               </div>
             </div>
@@ -425,6 +450,7 @@ interface HsnRow {
                 <div class="row"><span>SGST</span><span>{{ money(t().sgst) }}</span></div>
               }
               <div class="row te-grand"><span>Total</span><span>{{ money(t().total) }}</span></div>
+              <ng-container [ngTemplateOutlet]="paidRows" />
             </div>
           </section>
 
@@ -436,6 +462,7 @@ interface HsnRow {
             <div>
               <div class="te-label">Payment</div>
               <div class="doc-small">{{ company().bank }}</div>
+              <ng-container [ngTemplateOutlet]="upiBox" />
             </div>
           </section>
 
@@ -520,6 +547,7 @@ interface HsnRow {
             <div class="doc-terms">
               <div class="doc-label">Bank details</div>
               <div class="doc-small">{{ company().bank }}</div>
+              <ng-container [ngTemplateOutlet]="upiBox" />
               <div class="doc-label" style="margin-top: 10px">Terms &amp; conditions</div>
               <div class="doc-small" style="white-space: pre-line">{{ notes() || company().terms }}</div>
             </div>
@@ -536,6 +564,7 @@ interface HsnRow {
                 <div class="row"><span>SGST</span><span>{{ money(t().sgst) }}</span></div>
               }
               <div class="row grand"><span>Total</span><span>{{ money(t().total) }}</span></div>
+              <ng-container [ngTemplateOutlet]="paidRows" />
             </div>
           </section>
           <footer class="doc-sign">For {{ company().name }}<br /><span class="doc-small">Authorised signatory</span></footer>
@@ -556,6 +585,10 @@ export class DocView {
   readonly notes = input('');
   /** Layout to show; falls back to the business default from Settings. */
   readonly template = input<DocTemplate | null>(null);
+  /** Payments received (proformas only) — shows Received / Balance due. */
+  readonly payments = input<Payment[] | null>(null);
+  /** Show a UPI QR for the balance due (proformas only, needs a UPI ID in Settings). */
+  readonly showUpi = input(false);
 
   readonly company = this.store.company;
   readonly tpl = computed(() => this.template() || this.store.docTemplate());
@@ -565,6 +598,16 @@ export class DocView {
   readonly roundOff = computed(() => r2(this.t().total - (this.t().taxable + this.taxTotal())));
   readonly words = computed(() => inWords(this.t().total));
   readonly taxWords = computed(() => inWords(this.taxTotal()));
+  readonly received = computed(() => Math.round((this.payments() ?? []).reduce((s, p) => s + (p.amount || 0), 0) * 100) / 100);
+  readonly due = computed(() => Math.max(0, Math.round((this.t().total - this.received()) * 100) / 100));
+  /** upi://pay deep link for the balance due; any UPI app can scan it. */
+  readonly upiLink = computed(() => {
+    const co = this.company();
+    if (!this.showUpi() || !co.upiId || this.due() <= 0) return '';
+    const q = new URLSearchParams({ pa: co.upiId, pn: co.upiName || co.name, am: this.due().toFixed(2), cu: 'INR', tn: this.number() });
+    return 'upi://pay?' + q.toString().replace(/\+/g, '%20');
+  });
+  readonly upiQr = signal('');
   readonly totalQty = computed(() => this.items().reduce((s, i) => s + (i.qty || 0), 0));
 
   readonly lines = computed<Line[]>(() =>
@@ -591,6 +634,23 @@ export class DocView {
 
   /** Blank rows so the boxed GST table keeps an invoice-like height with few items. */
   readonly fillers = computed(() => Array(Math.max(0, 6 - this.items().length)).fill(0));
+
+  constructor() {
+    effect(() => {
+      const link = this.upiLink();
+      if (!link) {
+        this.upiQr.set('');
+        return;
+      }
+      // Loaded on demand: only proformas with a balance need the QR library
+      import('qrcode')
+        .then((QRCode) => (QRCode.toDataURL ?? (QRCode as unknown as { default: typeof QRCode }).default.toDataURL)(link, { margin: 1, width: 240, errorCorrectionLevel: 'M' }))
+        .then((url) => {
+          if (this.upiLink() === link) this.upiQr.set(url);
+        })
+        .catch(() => this.upiQr.set(''));
+    });
+  }
 
   money = inr;
   d = fmtDate;

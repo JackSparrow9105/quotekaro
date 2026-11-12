@@ -61,6 +61,18 @@ import { LayoutPicker } from './layout-picker';
           <div class="field"><label for="s-email">Email</label><input id="s-email" type="email" [(ngModel)]="c.email" /></div>
         </div>
         <div class="field"><label for="s-bank">Bank details</label><input id="s-bank" [(ngModel)]="c.bank" /></div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="s-upi">UPI ID</label>
+            <input id="s-upi" placeholder="yourcompany@hdfcbank" autocapitalize="off" [(ngModel)]="c.upiId" />
+          </div>
+          <div class="field"><label for="s-upiname">Name shown in UPI apps</label><input id="s-upiname" [placeholder]="c.name" [(ngModel)]="c.upiName" /></div>
+        </div>
+        @if (c.upiId && !upiValid()) {
+          <div class="stock-warn">A UPI ID looks like name&#64;bank, e.g. yourcompany&#64;hdfcbank.</div>
+        } @else {
+          <div class="card-meta">Proformas print a "scan to pay" QR for the balance due.</div>
+        }
         <div class="field"><label for="s-terms">Default terms &amp; conditions</label><textarea id="s-terms" rows="5" [(ngModel)]="c.terms"></textarea></div>
       </div>
 
@@ -74,6 +86,26 @@ import { LayoutPicker } from './layout-picker';
       </div>
 
       <aside class="edit-side">
+      <div class="form-card">
+        <div>
+          <div class="card-title">Sales team</div>
+          <p class="card-meta lp-help">People who prepare quotes. Used for "Prepared by" and sales reports.</p>
+        </div>
+        @for (m of c.team ?? []; track m; let i = $index) {
+          <div class="team-row">
+            <span class="avatar avatar-sm" aria-hidden="true">{{ m.charAt(0) }}</span>
+            <span class="grow">{{ m }}</span>
+            <button type="button" class="icon-btn" [attr.aria-label]="'Remove ' + m" (click)="removeMember(i)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        }
+        <div class="field-row">
+          <input aria-label="Team member name" placeholder="Add a name" [(ngModel)]="newMember" (keydown.enter)="addMember()" />
+          <button type="button" class="btn btn-ghost btn-sm" [disabled]="!newMember.trim()" (click)="addMember()">Add</button>
+        </div>
+      </div>
+
       <div class="form-card">
         <div class="card-title">Demo data</div>
         <p class="card-meta">Start over with the sample customers, products and quotes.</p>
@@ -104,6 +136,7 @@ export class Settings {
   protected c: Company = { ...this.store.company() };
   protected readonly saved = signal(true);
   protected readonly confirmReset = signal(false);
+  protected newMember = '';
 
   onLogo(ev: Event) {
     const file = (ev.target as HTMLInputElement).files?.[0];
@@ -131,12 +164,31 @@ export class Settings {
     if ((ev.target as HTMLElement).closest('.swatch, button')) this.saved.set(false);
   }
 
+  upiValid() {
+    return /^[\w.\-]{2,}@[a-zA-Z][\w.\-]{1,}$/.test((this.c.upiId ?? '').trim());
+  }
+
+  addMember() {
+    const name = this.newMember.trim();
+    if (!name) return;
+    const team = this.c.team ?? [];
+    if (!team.some((t) => t.toLowerCase() === name.toLowerCase())) this.c.team = [...team, name];
+    this.newMember = '';
+    this.saved.set(false);
+  }
+
+  removeMember(i: number) {
+    this.c.team = (this.c.team ?? []).filter((_, idx) => idx !== i);
+    this.saved.set(false);
+  }
+
   pickLayout(t: DocTemplate) {
     this.c.docTemplate = t;
     this.saved.set(false);
   }
 
   save() {
+    this.c.upiId = (this.c.upiId ?? '').trim();
     this.store.saveCompany(this.c);
     this.saved.set(true);
   }

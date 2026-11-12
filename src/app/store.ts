@@ -12,6 +12,9 @@ export interface Company {
   bank: string;
   terms: string;
   docTemplate?: DocTemplate; // default layout for quotes & proformas
+  upiId?: string; // e.g. yourcompany@hdfcbank — shown as a QR on proformas
+  upiName?: string; // payee name shown in UPI apps
+  team?: string[]; // salespeople, for "Prepared by" and reports
 }
 
 export type DocTemplate = 'classic' | 'modern' | 'gst' | 'elegant';
@@ -71,6 +74,8 @@ export interface Product {
   trackStock: boolean; // false for services
   stock: number;
   reorderLevel: number; // low-stock alert at or below this
+  sku?: string; // your item code
+  barcode?: string; // EAN / UPC / any printed code
 }
 
 export type MoveType = 'in' | 'out' | 'adjust';
@@ -82,6 +87,56 @@ export interface StockMove {
   type: MoveType;
   qty: number; // signed change in stock
   note: string;
+  supplier?: string; // purchases
+  billNo?: string;
+  rate?: number; // purchase cost per unit
+}
+
+export type PayMode = 'UPI' | 'Bank transfer' | 'Cash' | 'Cheque' | 'Card';
+export const PAY_MODES: PayMode[] = ['UPI', 'Bank transfer', 'Cash', 'Cheque', 'Card'];
+
+export interface Payment {
+  id: string;
+  date: string;
+  amount: number;
+  mode: PayMode;
+  ref: string; // UTR / cheque no.
+  note: string;
+}
+
+export type PayStatus = 'unpaid' | 'part' | 'paid';
+
+export interface ChallanItem {
+  productId: string;
+  name: string;
+  hsn: string;
+  unit: string;
+  qty: number;
+}
+
+export interface Challan {
+  id: string;
+  number: string;
+  quoteId: string;
+  proformaId: string; // '' when made straight from a won quote
+  customerId: string;
+  date: string;
+  items: ChallanItem[];
+  vehicle: string;
+  transporter: string;
+  lrNo: string; // LR / docket no.
+  notes: string;
+}
+
+export interface LedgerRow {
+  date: string;
+  kind: 'proforma' | 'payment';
+  ref: string;
+  text: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  link: unknown[];
 }
 
 export interface LineItem {
@@ -110,6 +165,7 @@ export interface Quote {
   lostReason: string;
   proformaId: string;
   revision: number;
+  preparedBy?: string;
 }
 
 export interface Proforma {
@@ -120,6 +176,7 @@ export interface Proforma {
   date: string;
   items: LineItem[];
   notes: string;
+  payments?: Payment[];
 }
 
 export interface Totals {
@@ -140,7 +197,8 @@ interface State {
   quotes: Quote[];
   proformas: Proforma[];
   moves: StockMove[];
-  seq: { quote: number; proforma: number };
+  challans: Challan[];
+  seq: { quote: number; proforma: number; challan: number };
 }
 
 const KEY = 'quotekaro-demo-v2';
@@ -181,11 +239,11 @@ function seed(): State {
     { id: 'c3', name: 'Greenfield Solar LLP', contact: 'Vikram Singh', phone: '9971123456', gstin: '06AAGFG4321L1Z8', state: 'Haryana', address: 'Udyog Vihar, Gurugram' },
   ];
   const products: Product[] = [
-    { id: 'p1', name: 'Copper bonded earthing electrode 3 m', hsn: '8538', unit: 'pcs', rate: 4850, gst: 18, trackStock: true, stock: 42, reorderLevel: 15 },
-    { id: 'p2', name: 'Earthing backfill compound 25 kg', hsn: '3824', unit: 'bag', rate: 1250, gst: 18, trackStock: true, stock: 18, reorderLevel: 25 },
-    { id: 'p3', name: 'ESE lightning arrester', hsn: '8535', unit: 'pcs', rate: 38500, gst: 18, trackStock: true, stock: 3, reorderLevel: 2 },
-    { id: 'p4', name: 'Copper strip 25x3 mm', hsn: '7409', unit: 'm', rate: 820, gst: 18, trackStock: true, stock: 240, reorderLevel: 100 },
-    { id: 'p5', name: 'Earth pit cover (polymer)', hsn: '3926', unit: 'pcs', rate: 650, gst: 18, trackStock: true, stock: 6, reorderLevel: 10 },
+    { id: 'p1', name: 'Copper bonded earthing electrode 3 m', hsn: '8538', unit: 'pcs', rate: 4850, gst: 18, trackStock: true, stock: 42, reorderLevel: 15, sku: 'EE-CB-3M', barcode: '8901234500017' },
+    { id: 'p2', name: 'Earthing backfill compound 25 kg', hsn: '3824', unit: 'bag', rate: 1250, gst: 18, trackStock: true, stock: 18, reorderLevel: 25, sku: 'BF-25KG', barcode: '8901234500024' },
+    { id: 'p3', name: 'ESE lightning arrester', hsn: '8535', unit: 'pcs', rate: 38500, gst: 18, trackStock: true, stock: 3, reorderLevel: 2, sku: 'LA-ESE', barcode: '' },
+    { id: 'p4', name: 'Copper strip 25x3 mm', hsn: '7409', unit: 'm', rate: 820, gst: 18, trackStock: true, stock: 240, reorderLevel: 100, sku: 'CS-25X3', barcode: '' },
+    { id: 'p5', name: 'Earth pit cover (polymer)', hsn: '3926', unit: 'pcs', rate: 650, gst: 18, trackStock: true, stock: 6, reorderLevel: 10, sku: 'EPC-POLY', barcode: '8901234500031' },
     { id: 'p6', name: 'Installation & testing charges', hsn: '9954', unit: 'job', rate: 7500, gst: 18, trackStock: false, stock: 0, reorderLevel: 0 },
   ];
   const moves: StockMove[] = [
@@ -194,7 +252,7 @@ function seed(): State {
     { id: 'm3', productId: 'p3', date: today(-30), type: 'in', qty: 3, note: 'Opening stock' },
     { id: 'm4', productId: 'p4', date: today(-30), type: 'in', qty: 240, note: 'Opening stock' },
     { id: 'm5', productId: 'p5', date: today(-30), type: 'in', qty: 16, note: 'Opening stock' },
-    { id: 'm6', productId: 'p1', date: today(-15), type: 'in', qty: 2, note: 'Received from supplier' },
+    { id: 'm6', productId: 'p1', date: today(-15), type: 'in', qty: 2, note: 'Purchase · Ravi Traders · Bill 2231', supplier: 'Ravi Traders', billNo: '2231', rate: 3900 },
     { id: 'm7', productId: 'p1', date: today(-8), type: 'out', qty: -10, note: 'PI-2026-001 · Sharma Builders' },
     { id: 'm8', productId: 'p2', date: today(-8), type: 'out', qty: -20, note: 'PI-2026-001 · Sharma Builders' },
     { id: 'm9', productId: 'p5', date: today(-8), type: 'out', qty: -10, note: 'PI-2026-001 · Sharma Builders' },
@@ -203,14 +261,20 @@ function seed(): State {
     productId: p.id, name: p.name, hsn: p.hsn, unit: p.unit, qty, rate: p.rate, discount, gst: p.gst,
   });
   const quotes: Quote[] = [
-    { id: 'q1', number: 'QT-2026-001', customerId: 'c1', date: today(-12), validTill: today(18), items: [item(products[0], 10, 5), item(products[1], 20), item(products[4], 10), item(products[5], 1)], notes: '', status: 'won', followUp: '', lostReason: '', proformaId: 'pi1', revision: 1 },
-    { id: 'q2', number: 'QT-2026-002', customerId: 'c2', date: today(-6), validTill: today(24), items: [item(products[2], 2), item(products[3], 60, 3), item(products[5], 2)], notes: '', status: 'sent', followUp: today(0), lostReason: '', proformaId: '', revision: 2 },
-    { id: 'q3', number: 'QT-2026-003', customerId: 'c3', date: today(-4), validTill: today(26), items: [item(products[0], 24, 8), item(products[1], 48)], notes: '', status: 'sent', followUp: today(-1), lostReason: '', proformaId: '', revision: 1 },
-    { id: 'q4', number: 'QT-2026-004', customerId: 'c1', date: today(-20), validTill: today(10), items: [item(products[2], 1)], notes: '', status: 'lost', followUp: '', lostReason: 'Price too high', proformaId: '', revision: 1 },
-    { id: 'q5', number: 'QT-2026-005', customerId: 'c2', date: today(-1), validTill: today(29), items: [item(products[0], 6), item(products[4], 6)], notes: '', status: 'draft', followUp: today(3), lostReason: '', proformaId: '', revision: 1 },
+    { id: 'q1', number: 'QT-2026-001', customerId: 'c1', date: today(-12), validTill: today(18), items: [item(products[0], 10, 5), item(products[1], 20), item(products[4], 10), item(products[5], 1)], notes: '', status: 'won', followUp: '', lostReason: '', proformaId: 'pi1', revision: 1, preparedBy: 'Amit' },
+    { id: 'q2', number: 'QT-2026-002', customerId: 'c2', date: today(-6), validTill: today(24), items: [item(products[2], 2), item(products[3], 60, 3), item(products[5], 2)], notes: '', status: 'sent', followUp: today(0), lostReason: '', proformaId: '', revision: 2, preparedBy: 'Neha' },
+    { id: 'q3', number: 'QT-2026-003', customerId: 'c3', date: today(-4), validTill: today(26), items: [item(products[0], 24, 8), item(products[1], 48)], notes: '', status: 'sent', followUp: today(-1), lostReason: '', proformaId: '', revision: 1, preparedBy: 'Amit' },
+    { id: 'q4', number: 'QT-2026-004', customerId: 'c1', date: today(-20), validTill: today(10), items: [item(products[2], 1)], notes: '', status: 'lost', followUp: '', lostReason: 'Price too high', proformaId: '', revision: 1, preparedBy: 'Neha' },
+    { id: 'q5', number: 'QT-2026-005', customerId: 'c2', date: today(-1), validTill: today(29), items: [item(products[0], 6), item(products[4], 6)], notes: '', status: 'draft', followUp: today(3), lostReason: '', proformaId: '', revision: 1, preparedBy: 'Amit' },
   ];
   const proformas: Proforma[] = [
-    { id: 'pi1', number: 'PI-2026-001', quoteId: 'q1', customerId: 'c1', date: today(-8), items: quotes[0].items.map((i) => ({ ...i })), notes: '50% advance with order, balance before dispatch.' },
+    { id: 'pi1', number: 'PI-2026-001', quoteId: 'q1', customerId: 'c1', date: today(-8), items: quotes[0].items.map((i) => ({ ...i })), notes: '50% advance with order, balance before dispatch.',
+      payments: [{ id: 'pay1', date: today(-7), amount: 40000, mode: 'UPI', ref: 'UTR 4312 8890 1123', note: 'Advance' }] },
+  ];
+  const challans: Challan[] = [
+    { id: 'dc1', number: 'DC-2026-001', quoteId: 'q1', proformaId: 'pi1', customerId: 'c1', date: today(-5),
+      items: [{ productId: 'p1', name: products[0].name, hsn: products[0].hsn, unit: 'pcs', qty: 6 }, { productId: 'p2', name: products[1].name, hsn: products[1].hsn, unit: 'bag', qty: 20 }],
+      vehicle: 'UP 14 CT 2231', transporter: 'Own vehicle', lrNo: '', notes: 'Part delivery. Balance electrodes and covers to follow.' },
   ];
   return {
     company: {
@@ -224,13 +288,17 @@ function seed(): State {
       email: 'sales@yourcompany.in',
       bank: 'HDFC Bank · A/c 50200012345678 · IFSC HDFC0001234',
       terms: '1. Prices are exclusive of freight.\n2. Delivery within 7 working days of PO.\n3. Payment: 50% advance, balance before dispatch.\n4. Quote valid for 30 days.',
+      upiId: 'yourcompany@hdfcbank',
+      upiName: 'Your Company Pvt Ltd',
+      team: ['Amit', 'Neha'],
     },
     customers,
     products,
     quotes,
     proformas,
     moves,
-    seq: { quote: 5, proforma: 1 },
+    challans,
+    seq: { quote: 5, proforma: 1, challan: 1 },
   };
 }
 
@@ -239,7 +307,13 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as State;
-      if (Array.isArray(s.moves)) return s;
+      if (Array.isArray(s.moves)) {
+        // Older saved data: add the newer collections
+        s.challans ??= [];
+        s.seq = { quote: s.seq?.quote ?? 0, proforma: s.seq?.proforma ?? 0, challan: s.seq?.challan ?? 0 };
+        s.proformas = s.proformas.map((p) => ({ ...p, payments: p.payments ?? [] }));
+        return s;
+      }
     }
   } catch {
     /* storage unavailable */
@@ -258,6 +332,17 @@ export class Store {
   readonly quotes = computed(() => [...this.state().quotes].sort((a, b) => b.number.localeCompare(a.number)));
   readonly proformas = computed(() => this.state().proformas);
   readonly moves = computed(() => this.state().moves);
+  readonly challans = computed(() => [...this.state().challans].sort((a, b) => b.number.localeCompare(a.number)));
+  readonly team = computed(() => this.state().company.team ?? []);
+
+  /** Proformas with money still to collect, oldest first. */
+  readonly receivables = computed(() =>
+    this.state()
+      .proformas.map((p) => ({ p, ...this.payInfo(p) }))
+      .filter((r) => r.due > 0)
+      .sort((a, b) => a.p.date.localeCompare(b.p.date)),
+  );
+  readonly outstanding = computed(() => this.receivables().reduce((s, r) => s + r.due, 0));
 
   readonly lowStock = computed(() =>
     this.state().products.filter((p) => p.trackStock && p.stock <= p.reorderLevel),
@@ -324,6 +409,70 @@ export class Store {
   product(id: string): Product | undefined {
     return this.state().products.find((p) => p.id === id);
   }
+  challan(id: string): Challan | undefined {
+    return this.state().challans.find((c) => c.id === id);
+  }
+  challansFor(quoteId: string): Challan[] {
+    return this.state()
+      .challans.filter((c) => c.quoteId === quoteId)
+      .sort((a, b) => a.number.localeCompare(b.number));
+  }
+
+  /** Find a product by SKU or barcode (exact, case-insensitive). */
+  productByCode(code: string): Product | undefined {
+    const c = code.trim().toLowerCase();
+    if (!c) return undefined;
+    return this.state().products.find((p) => (p.sku ?? '').toLowerCase() === c || (p.barcode ?? '').toLowerCase() === c);
+  }
+
+  /** Amount paid / due on a proforma. */
+  payInfo(p: Proforma): { total: number; paid: number; due: number; status: PayStatus } {
+    const total = this.totals(p).total;
+    const paid = Math.round((p.payments ?? []).reduce((s, x) => s + (x.amount || 0), 0) * 100) / 100;
+    const due = Math.max(0, Math.round((total - paid) * 100) / 100);
+    return { total, paid, due, status: paid <= 0 ? 'unpaid' : due > 0 ? 'part' : 'paid' };
+  }
+
+  /** Ordered vs delivered quantity per product for a won quote / its proforma. */
+  deliveryFor(quoteId: string): { productId: string; name: string; hsn: string; unit: string; ordered: number; delivered: number }[] {
+    const q = this.quote(quoteId);
+    if (!q) return [];
+    const pi = q.proformaId ? this.proforma(q.proformaId) : undefined;
+    const rows = new Map<string, { productId: string; name: string; hsn: string; unit: string; ordered: number; delivered: number }>();
+    for (const i of (pi ?? q).items) {
+      const r = rows.get(i.productId) ?? { productId: i.productId, name: i.name, hsn: i.hsn, unit: i.unit, ordered: 0, delivered: 0 };
+      r.ordered += i.qty || 0;
+      rows.set(i.productId, r);
+    }
+    for (const c of this.challansFor(quoteId)) {
+      for (const i of c.items) {
+        const r = rows.get(i.productId);
+        if (r) r.delivered += i.qty || 0;
+      }
+    }
+    return [...rows.values()];
+  }
+
+  /** Statement for a customer: proformas raised (debit) and payments received (credit). */
+  ledger(customerId: string): LedgerRow[] {
+    const rows: Omit<LedgerRow, 'balance'>[] = [];
+    for (const p of this.state().proformas.filter((x) => x.customerId === customerId)) {
+      rows.push({ date: p.date, kind: 'proforma', ref: p.number, text: 'Proforma invoice', debit: this.totals(p).total, credit: 0, link: ['/proforma', p.id] });
+      for (const pay of p.payments ?? []) {
+        rows.push({
+          date: pay.date, kind: 'payment', ref: p.number,
+          text: `Payment · ${pay.mode}${pay.ref ? ' · ' + pay.ref : ''}`, debit: 0, credit: pay.amount, link: ['/proforma', p.id],
+        });
+      }
+    }
+    rows.sort((a, b) => a.date.localeCompare(b.date) || (a.kind === 'proforma' ? -1 : 1));
+    let bal = 0;
+    return rows.map((r) => {
+      bal = Math.round((bal + r.debit - r.credit) * 100) / 100;
+      return { ...r, balance: bal };
+    });
+  }
+
   movesFor(productId: string): StockMove[] {
     return this.state()
       .moves.filter((m) => m.productId === productId)
@@ -409,13 +558,20 @@ export class Store {
     });
   }
 
-  /** Record stock received (qty > 0). */
-  stockIn(productId: string, qty: number, note: string) {
+  /** Record stock received (qty > 0), optionally as a purchase with supplier, bill and cost. */
+  stockIn(productId: string, qty: number, note: string, purchase: { date?: string; supplier?: string; billNo?: string; rate?: number } = {}) {
     if (!(qty > 0)) return;
+    const supplier = (purchase.supplier ?? '').trim();
+    const billNo = (purchase.billNo ?? '').trim();
+    const label = note || (supplier || billNo ? ['Purchase', supplier, billNo && 'Bill ' + billNo].filter(Boolean).join(' · ') : 'Stock received');
+    const move: StockMove = { id: uid(), productId, date: purchase.date || today(0), type: 'in', qty, note: label };
+    if (supplier) move.supplier = supplier;
+    if (billNo) move.billNo = billNo;
+    if (purchase.rate && purchase.rate > 0) move.rate = purchase.rate;
     this.patch((s) => ({
       ...s,
       products: s.products.map((p) => (p.id === productId ? { ...p, stock: p.stock + qty } : p)),
-      moves: [...s.moves, { id: uid(), productId, date: today(0), type: 'in', qty, note: note || 'Stock received' }],
+      moves: [...s.moves, move],
     }));
   }
 
@@ -479,7 +635,7 @@ export class Store {
       const n = s.seq.proforma + 1;
       pi = {
         id: uid(), number: `PI-${new Date().getFullYear()}-${String(n).padStart(3, '0')}`, quoteId: q.id,
-        customerId: q.customerId, date: today(0), items: q.items.map((i) => ({ ...i })), notes: q.notes,
+        customerId: q.customerId, date: today(0), items: q.items.map((i) => ({ ...i })), notes: q.notes, payments: [],
       };
       // Confirmed order: take the items out of stock
       const custName = s.customers.find((c) => c.id === q.customerId)?.name ?? '';
@@ -501,6 +657,40 @@ export class Store {
       };
     });
     return pi;
+  }
+
+  // ---- payments
+  addPayment(proformaId: string, pay: Omit<Payment, 'id'>) {
+    if (!(pay.amount > 0)) return;
+    this.patch((s) => ({
+      ...s,
+      proformas: s.proformas.map((p) => (p.id === proformaId ? { ...p, payments: [...(p.payments ?? []), { ...pay, id: uid() }] } : p)),
+    }));
+  }
+
+  deletePayment(proformaId: string, paymentId: string) {
+    this.patch((s) => ({
+      ...s,
+      proformas: s.proformas.map((p) => (p.id === proformaId ? { ...p, payments: (p.payments ?? []).filter((x) => x.id !== paymentId) } : p)),
+    }));
+  }
+
+  // ---- delivery challans (stock already left at proforma; challans record what was dispatched)
+  saveChallan(c: Challan): Challan {
+    let rec: Challan = { ...c, items: c.items.filter((i) => i.qty > 0).map((i) => ({ ...i })) };
+    this.patch((s) => {
+      if (!rec.id) {
+        const n = (s.seq.challan ?? 0) + 1;
+        rec = { ...rec, id: uid(), number: `DC-${new Date().getFullYear()}-${String(n).padStart(3, '0')}` };
+        return { ...s, seq: { ...s.seq, challan: n }, challans: [...s.challans, rec] };
+      }
+      return { ...s, challans: s.challans.map((x) => (x.id === rec.id ? rec : x)) };
+    });
+    return rec;
+  }
+
+  deleteChallan(id: string) {
+    this.patch((s) => ({ ...s, challans: s.challans.filter((c) => c.id !== id) }));
   }
 
   reset() {

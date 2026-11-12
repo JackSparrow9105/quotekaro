@@ -1,10 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Customer, STATES, Store, inr } from '../store';
 
 @Component({
   selector: 'app-customers',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <section class="page page-split">
       <div class="page-head">
@@ -38,7 +39,7 @@ import { Customer, STATES, Store, inr } from '../store';
 
       <div class="list list-grid">
         @for (c of rows(); track c.c.id) {
-          <button type="button" class="card card-link card-btn" (click)="open(c.c)">
+          <a class="card card-link" [routerLink]="['/customers', c.c.id]">
             <div class="card-row">
               <div class="avatar" aria-hidden="true">{{ c.c.name.charAt(0) }}</div>
               <div class="grow">
@@ -47,10 +48,14 @@ import { Customer, STATES, Store, inr } from '../store';
               </div>
               <div class="right">
                 <div class="card-amount">{{ c.quotes }} quotes</div>
-                <div class="card-meta">{{ money(c.won) }} won</div>
+                @if (c.due > 0) {
+                  <div class="card-meta pay-red">{{ money(c.due) }} due</div>
+                } @else {
+                  <div class="card-meta">{{ money(c.won) }} won</div>
+                }
               </div>
             </div>
-          </button>
+          </a>
         }
       </div>
     </section>
@@ -68,6 +73,7 @@ export class Customers {
         c,
         quotes: qs.length,
         won: qs.filter((q) => q.status === 'won').reduce((s, q) => s + this.store.totals(q).total, 0),
+        due: this.store.receivables().filter((r) => r.p.customerId === c.id).reduce((s, r) => s + r.due, 0),
       };
     }),
   );

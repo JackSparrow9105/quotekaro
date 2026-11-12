@@ -2,10 +2,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Customer, Quote, STATES, Store, inr, uid } from '../store';
+import { ScanButton } from './scan-button';
 
 @Component({
   selector: 'app-quote-edit',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, ScanButton],
   template: `
     <section class="page page-with-bar">
       <div class="page-head">
@@ -90,15 +91,34 @@ import { Customer, Quote, STATES, Store, inr, uid } from '../store';
         <select id="addp" #addSel (change)="addItem(addSel.value); addSel.value = ''">
           <option value="">Choose from catalogue…</option>
           @for (p of store.products(); track p.id) {
-            <option [value]="p.id">{{ p.name }} — {{ money(p.rate) }}/{{ p.unit }}{{ p.trackStock ? ' · ' + p.stock + ' in stock' : '' }}</option>
+            <option [value]="p.id">{{ p.sku ? p.sku + ' · ' : '' }}{{ p.name }} — {{ money(p.rate) }}/{{ p.unit }}{{ p.trackStock ? ' · ' + p.stock + ' in stock' : '' }}</option>
           }
         </select>
+      </div>
+      <div class="field">
+        <label for="code">Or add by SKU / barcode</label>
+        <div class="field-row">
+          <input id="code" placeholder="Type or scan, then Enter" autocapitalize="characters" [(ngModel)]="code" (keydown.enter)="addByCode(code)" />
+          <app-scan-button (scanned)="addByCode($event)" />
+        </div>
+        @if (codeMsg()) {
+          <div class="stock-warn">{{ codeMsg() }}</div>
+        }
       </div>
 
       </div>
 
       <aside class="edit-side">
       <div class="form-card">
+        @if (store.team().length) {
+          <div class="field">
+            <label for="by">Prepared by</label>
+            <select id="by" [ngModel]="draft().preparedBy ?? ''" (ngModelChange)="set({ preparedBy: $event })">
+              <option value="">Not set</option>
+              @for (m of store.team(); track m) { <option [value]="m">{{ m }}</option> }
+            </select>
+          </div>
+        }
         <div class="field">
           <label for="fu">Follow-up reminder</label>
           <input id="fu" type="date" [ngModel]="draft().followUp" (ngModelChange)="set({ followUp: $event })" />
@@ -140,6 +160,8 @@ export class QuoteEdit {
   protected readonly draft = signal<Quote>(this.initial());
   protected readonly showNewCust = signal(false);
   protected newCust: Customer = this.blankCust();
+  protected code = '';
+  protected readonly codeMsg = signal('');
 
   protected readonly t = computed(() => this.store.totals(this.draft()));
   protected readonly canSave = computed(() => !!this.draft().customerId && this.draft().items.length > 0);
@@ -147,7 +169,19 @@ export class QuoteEdit {
   private initial(): Quote {
     const id = this.route.snapshot.paramMap.get('id');
     const existing = id ? this.store.quote(id) : undefined;
-    return existing ? { ...existing, items: existing.items.map((i) => ({ ...i })) } : this.store.newQuote();
+    if (existing) return { ...existing, items: existing.items.map((i) => ({ ...i })) };
+    const fromCustomer = typeof history !== 'undefined' ? (history.state?.customerId as string | undefined) : undefined;
+    return { ...this.store.newQuote(), preparedBy: this.lastPreparedBy(), customerId: fromCustomer && this.store.customer(fromCustomer) ? fromCustomer : '' };
+  }
+
+  /** Whoever saved the last quote on this device, so the team member doesn't pick themselves each time. */
+  private lastPreparedBy(): string {
+    try {
+      const v = localStorage.getItem('qk_prepared_by') ?? '';
+      return this.store.team().includes(v) ? v : (this.store.team()[0] ?? '');
+    } catch {
+      return this.store.team()[0] ?? '';
+    }
   }
 
   private blankCust(): Customer {
@@ -171,6 +205,22 @@ export class QuoteEdit {
       items: [...d.items, { productId: p.id, name: p.name, hsn: p.hsn, unit: p.unit, qty: 1, rate: p.rate, discount: 0, gst: p.gst }],
     }));
   }
+  /** Add a product by SKU/barcode; scanning the same item again adds one more. */
+  addByCode(raw: string) {
+    const code = raw.trim();
+    if (!code) return;
+    const p = this.store.productByCode(code);
+    if (!p) {
+      this.codeMsg.set(`No product with code "${code}". Add it in Inventory first.`);
+      return;
+    }
+    this.codeMsg.set('');
+    this.code = '';
+    const idx = this.draft().items.findIndex((i) => i.productId === p.id);
+    if (idx >= 0) this.setItem(idx, { qty: (this.draft().items[idx].qty || 0) + 1 });
+    else this.addItem(p.id);
+  }
+
   addCustomer() {
     const c = this.store.saveCustomer({ ...this.newCust, id: uid() });
     this.set({ customerId: c.id });
@@ -178,6 +228,11 @@ export class QuoteEdit {
     this.showNewCust.set(false);
   }
   save() {
+    try {
+      localStorage.setItem('qk_prepared_by', this.draft().preparedBy ?? '');
+    } catch {
+      /* storage unavailable */
+    }
     const saved = this.store.saveQuote(this.draft());
     this.router.navigate(['/quotes', saved.id]);
   }

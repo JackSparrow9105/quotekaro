@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Store, fmtDate, inr, today } from '../store';
 import { HomeData } from './home-data';
+import { waLink } from './share';
 
 /** Home: ERP-style overview with KPIs, pipeline bar, weekly chart, top customers, follow-ups and stock. */
 @Component({
@@ -14,6 +15,7 @@ import { HomeData } from './home-data';
           <h1 class="page-title">Overview</h1>
           <p class="page-sub">{{ h.dateLabel }}</p>
         </div>
+        <a routerLink="/reports" class="btn btn-ghost btn-sm">Reports</a>
       </div>
 
       <div class="hp-kpis hx-stagger">
@@ -64,6 +66,30 @@ import { HomeData } from './home-data';
           }
         </div>
       </div>
+
+      @if (store.receivables().length) {
+        <div class="hp-panel">
+          <div class="hp-panel-head">
+            <h2>Payments due</h2>
+            <a routerLink="/quotes" [state]="{ filter: 'due' }" class="link">{{ money(store.outstanding()) }} total</a>
+          </div>
+          <div class="hp-table">
+            @for (r of store.receivables().slice(0, 4); track r.p.id) {
+              <div class="hp-tr">
+                <a class="grow" [routerLink]="['/proforma', r.p.id]">
+                  <b>{{ h.customerName(r.p.customerId) }}</b><br />
+                  <span class="card-meta">{{ r.p.number }} · {{ d(r.p.date) }} · {{ ageDays(r.p.date) }} days</span>
+                </a>
+                <span class="hp-amt">{{ money(r.due) }}</span>
+                <a class="btn btn-ghost btn-sm hp-remind" [href]="remindLink(r.p.id, r.due)" target="_blank" rel="noopener" [attr.aria-label]="'Send payment reminder to ' + h.customerName(r.p.customerId)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>
+                  <span class="hp-remind-txt">Remind</span>
+                </a>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
       <div class="hp-grid">
         <div class="hp-panel">
@@ -140,6 +166,23 @@ export class Dashboard {
   protected readonly h = inject(HomeData);
   protected readonly s = this.store.stats;
   protected readonly todayStr = today(0);
+  /** Days since the proforma was raised. */
+  ageDays(date: string) {
+    return Math.max(0, Math.round((new Date(today(0)).getTime() - new Date(date).getTime()) / 86400000));
+  }
+
+  remindLink(piId: string, due: number) {
+    const p = this.store.proforma(piId);
+    const c = p ? this.store.customer(p.customerId) : undefined;
+    if (!p || !c) return '';
+    const co = this.store.company();
+    const text =
+      `Dear ${c.contact || c.name},\n\nThis is a gentle reminder that *${inr(due)}* is pending against our proforma invoice ` +
+      `*${p.number}* dated ${fmtDate(p.date)}.\n\n${co.upiId ? `Pay by UPI: ${co.upiId}\n` : ''}Bank details: ${co.bank}\n\n` +
+      `Please share the payment reference once done. Thank you!\n\n${co.name}\n${co.phone}`;
+    return waLink(c.phone, text);
+  }
+
   money = inr;
   d = fmtDate;
   /** ₹1.9L / ₹45K style labels for chart columns. */
