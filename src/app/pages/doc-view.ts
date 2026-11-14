@@ -17,7 +17,7 @@ interface HsnRow {
   tax: number;
 }
 
-/** Branded document used for both quotations and proforma invoices. Prints as the PDF. */
+/** Branded document used for quotations, proforma invoices and tax invoices. Prints as the PDF. */
 @Component({
   selector: 'app-doc-view',
   imports: [NgTemplateOutlet],
@@ -81,6 +81,7 @@ interface HsnRow {
                 @if (validTill()) { <dt>Valid till</dt><dd>{{ d(validTill()) }}</dd> }
                 <dt>Place of supply</dt><dd>{{ customer()?.state }}</dd>
                 <dt>Tax type</dt><dd>{{ t().interState ? 'IGST (inter-state)' : 'CGST + SGST' }}</dd>
+                @if (invoiceMeta()) { <dt>Reverse charge</dt><dd>No</dd> }
               </dl>
             </div>
           </div>
@@ -188,8 +189,12 @@ interface HsnRow {
                 <div class="tg-kv">
                   <div><span>{{ kind() }} No.</span><b>{{ number() }}</b></div>
                   <div><span>Dated</span><b>{{ d(date()) }}</b></div>
-                  <div><span>Valid till</span><b>{{ validTill() ? d(validTill()) : '—' }}</b></div>
-                  <div><span>Revision</span><b>{{ revision() }}</b></div>
+                  @if (invoiceMeta()) {
+                    <div><span>Proforma ref.</span><b>{{ reference() || '—' }}</b></div>
+                  } @else {
+                    <div><span>Valid till</span><b>{{ validTill() ? d(validTill()) : '—' }}</b></div>
+                    <div><span>Revision</span><b>{{ revision() }}</b></div>
+                  }
                   <div><span>Place of supply</span><b>{{ customer()?.state }}</b></div>
                   <div><span>Reverse charge</span><b>No</b></div>
                 </div>
@@ -400,6 +405,10 @@ interface HsnRow {
               @if (validTill()) {
                 <div class="doc-small">Valid till {{ d(validTill()) }}</div>
               }
+              @if (invoiceMeta()) {
+                <div class="doc-small">Place of supply: {{ customer()?.state }}</div>
+                <div class="doc-small">Reverse charge: No</div>
+              }
             </div>
             <div class="te-due">
               <div class="te-label">Total amount</div>
@@ -502,6 +511,10 @@ interface HsnRow {
               @if (validTill()) {
                 <div class="doc-small">Valid till: {{ d(validTill()) }}</div>
               }
+              @if (invoiceMeta()) {
+                <div class="doc-small">Place of supply: {{ customer()?.state }}</div>
+                <div class="doc-small">Reverse charge: No</div>
+              }
             </div>
           </header>
 
@@ -589,6 +602,10 @@ export class DocView {
   readonly payments = input<Payment[] | null>(null);
   /** Show a UPI QR for the balance due (proformas only, needs a UPI ID in Settings). */
   readonly showUpi = input(false);
+  /** Tax invoice: adds place of supply and reverse charge, as GST invoices must show. */
+  readonly invoiceMeta = input(false);
+  /** Linked document number shown on tax invoices (the proforma). */
+  readonly reference = input('');
 
   readonly company = this.store.company;
   readonly tpl = computed(() => this.template() || this.store.docTemplate());

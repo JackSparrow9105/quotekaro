@@ -19,6 +19,7 @@ export const routes: Routes = [
   { path: 'customers', component: Customers, title: 'Customers · QuoteKaro' },
   // Opened less often, so loaded on demand to keep the first load small
   { path: 'customers/:id', loadComponent: () => import('./pages/customer-detail').then((m) => m.CustomerDetail), title: 'Customer · QuoteKaro' },
+  { path: 'invoices/:id', loadComponent: () => import('./pages/invoice-detail').then((m) => m.InvoiceDetail), title: 'Tax invoice · QuoteKaro' },
   { path: 'challans/new', loadComponent: () => import('./pages/challan-edit').then((m) => m.ChallanEdit), title: 'New delivery challan · QuoteKaro' },
   { path: 'challans/:id', loadComponent: () => import('./pages/challan-detail').then((m) => m.ChallanDetail), title: 'Delivery challan · QuoteKaro' },
   { path: 'reports', loadComponent: () => import('./pages/reports').then((m) => m.Reports), title: 'Reports · QuoteKaro' },

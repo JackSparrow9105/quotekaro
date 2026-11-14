@@ -177,6 +177,31 @@ export interface Proforma {
   items: LineItem[];
   notes: string;
   payments?: Payment[];
+  invoiceId?: string; // set once a tax invoice is issued from this proforma
+}
+
+/** Final GST tax invoice, issued from a proforma. Never edited or deleted once issued. */
+export interface TaxInvoice {
+  id: string;
+  number: string; // INV/26-27/001: restarts every financial year, max 16 characters
+  proformaId: string;
+  quoteId: string;
+  customerId: string;
+  date: string;
+  items: LineItem[];
+  notes: string;
+}
+
+/** Indian financial year (April to March) for a yyyy-mm-dd date, as "26-27". */
+export function financialYear(date: string): string {
+  const [y, m] = date.split('-').map(Number);
+  const start = m >= 4 ? y : y - 1;
+  return `${String(start % 100).padStart(2, '0')}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+/** GSTIN format check: 2-digit state code, PAN, entity number, Z, checksum character. */
+export function isGstin(v: string): boolean {
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test((v || '').trim().toUpperCase());
 }
 
 export interface Totals {
@@ -198,7 +223,8 @@ interface State {
   proformas: Proforma[];
   moves: StockMove[];
   challans: Challan[];
-  seq: { quote: number; proforma: number; challan: number };
+  invoices: TaxInvoice[];
+  seq: { quote: number; proforma: number; challan: number; invoice: number; invoiceFy: string };
 }
 
 const KEY = 'quotekaro-demo-v2';
@@ -298,7 +324,8 @@ function seed(): State {
     proformas,
     moves,
     challans,
-    seq: { quote: 5, proforma: 1, challan: 1 },
+    invoices: [],
+    seq: { quote: 5, proforma: 1, challan: 1, invoice: 0, invoiceFy: '' },
   };
 }
 
@@ -310,7 +337,11 @@ function load(): State {
       if (Array.isArray(s.moves)) {
         // Older saved data: add the newer collections
         s.challans ??= [];
-        s.seq = { quote: s.seq?.quote ?? 0, proforma: s.seq?.proforma ?? 0, challan: s.seq?.challan ?? 0 };
+        s.invoices ??= [];
+        s.seq = {
+          quote: s.seq?.quote ?? 0, proforma: s.seq?.proforma ?? 0, challan: s.seq?.challan ?? 0,
+          invoice: s.seq?.invoice ?? 0, invoiceFy: s.seq?.invoiceFy ?? '',
+        };
         s.proformas = s.proformas.map((p) => ({ ...p, payments: p.payments ?? [] }));
         return s;
       }
@@ -334,6 +365,7 @@ export class Store {
   readonly moves = computed(() => this.state().moves);
   readonly challans = computed(() => [...this.state().challans].sort((a, b) => b.number.localeCompare(a.number)));
   readonly team = computed(() => this.state().company.team ?? []);
+  readonly invoices = computed(() => [...this.state().invoices].sort((a, b) => b.date.localeCompare(a.date) || b.number.localeCompare(a.number)));
 
   /** Proformas with money still to collect, oldest first. */
   readonly receivables = computed(() =>
@@ -408,6 +440,9 @@ export class Store {
   }
   product(id: string): Product | undefined {
     return this.state().products.find((p) => p.id === id);
+  }
+  invoice(id: string): TaxInvoice | undefined {
+    return this.state().invoices.find((i) => i.id === id);
   }
   challan(id: string): Challan | undefined {
     return this.state().challans.find((c) => c.id === id);
@@ -657,6 +692,52 @@ export class Store {
       };
     });
     return pi;
+  }
+
+  /** What must be fixed before a tax invoice can be issued (empty = ready). */
+  invoiceProblems(proformaId: string): string[] {
+    const p = this.proforma(proformaId);
+    if (!p) return ['Proforma not found.'];
+    const co = this.state().company;
+    const c = this.customer(p.customerId);
+    const out: string[] = [];
+    if (!isGstin(co.gstin)) out.push('Add your correct 15-character GSTIN in Settings.');
+    if (!co.state) out.push('Add your state in Settings.');
+    if (!co.address.trim()) out.push('Add your business address in Settings.');
+    if (!c) out.push('This proforma has no customer.');
+    else {
+      if (!c.state) out.push(`Add the state of ${c.name} (needed for place of supply).`);
+      if (c.gstin && !isGstin(c.gstin)) out.push(`The GSTIN saved for ${c.name} doesn't look right.`);
+    }
+    const noHsn = p.items.filter((i) => !(i.hsn || '').trim()).map((i) => i.name);
+    if (noHsn.length) out.push(`Add the HSN/SAC code for: ${noHsn.join(', ')}.`);
+    if (!p.items.length) out.push('This proforma has no items.');
+    return out;
+  }
+
+  /** Issue the GST tax invoice for a proforma (once). Stock already left at the proforma; payments stay on it. */
+  convertToInvoice(proformaId: string): TaxInvoice | undefined {
+    const p = this.proforma(proformaId);
+    if (!p) return undefined;
+    if (p.invoiceId) return this.invoice(p.invoiceId);
+    if (this.invoiceProblems(proformaId).length) return undefined;
+    let inv!: TaxInvoice;
+    this.patch((s) => {
+      const date = today(0);
+      const fy = financialYear(date);
+      const n = s.seq.invoiceFy === fy ? (s.seq.invoice ?? 0) + 1 : 1;
+      inv = {
+        id: uid(), number: `INV/${fy}/${String(n).padStart(3, '0')}`, proformaId: p.id, quoteId: p.quoteId,
+        customerId: p.customerId, date, items: p.items.map((i) => ({ ...i })), notes: p.notes,
+      };
+      return {
+        ...s,
+        seq: { ...s.seq, invoice: n, invoiceFy: fy },
+        invoices: [...s.invoices, inv],
+        proformas: s.proformas.map((x) => (x.id === p.id ? { ...x, invoiceId: inv.id } : x)),
+      };
+    });
+    return inv;
   }
 
   // ---- payments

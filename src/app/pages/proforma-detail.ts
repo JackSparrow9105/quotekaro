@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DocTemplate, PAY_MODES, PayMode, Proforma, Store, fmtDate, inr, today } from '../store';
 import { LayoutChooser } from './layout-picker';
@@ -37,6 +37,45 @@ import { isEmbedded } from '../memory-location';
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
                 Download PDF
               </button>
+            </div>
+
+            <!-- Tax invoice -->
+            <div class="form-card">
+              <div class="card-title">Tax invoice</div>
+              @if (invoice(); as inv) {
+                <a class="dl-challan" [routerLink]="['/invoices', inv.id]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14l2 2 4-4"/></svg>
+                  <span class="grow"><b>{{ inv.number }}</b> · {{ d(inv.date) }}</span>
+                  <span class="card-meta">View</span>
+                </a>
+              } @else if (confirmInvoice()) {
+                @if (invoiceProblems().length) {
+                  <div class="stock-warn">
+                    Fix these first:
+                    <ul class="tinv-problems">
+                      @for (m of invoiceProblems(); track m) { <li>{{ m }}</li> }
+                    </ul>
+                  </div>
+                  <div class="btn-row">
+                    <a class="btn btn-ghost btn-sm" routerLink="/settings">Open Settings</a>
+                    <a class="btn btn-ghost btn-sm" [routerLink]="['/customers', p.customerId]">Open customer</a>
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="confirmInvoice.set(false)">Cancel</button>
+                  </div>
+                } @else {
+                  <div class="card-meta">
+                    A tax invoice is the final GST bill. Once issued it can't be edited or deleted, so check the items, rates and customer first.
+                  </div>
+                  <div class="btn-row">
+                    <button type="button" class="btn btn-primary btn-sm" (click)="issueInvoice(p)">Issue tax invoice</button>
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="confirmInvoice.set(false)">Cancel</button>
+                  </div>
+                }
+              } @else {
+                <div class="card-meta">Turn this proforma into the final GST tax invoice when the sale is complete.</div>
+                <div class="btn-row">
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="confirmInvoice.set(true)">Convert to tax invoice</button>
+                </div>
+              }
             </div>
 
             <!-- Payments -->
@@ -173,6 +212,18 @@ export class ProformaDetail {
   protected readonly customer = computed(() => this.store.customer(this.pi()?.customerId ?? ''));
   protected readonly quoteNo = computed(() => this.store.quote(this.pi()?.quoteId ?? '')?.number ?? '');
   protected readonly toast = signal('');
+  protected readonly confirmInvoice = signal(false);
+  protected readonly invoice = computed(() => {
+    const p = this.pi();
+    return p?.invoiceId ? this.store.invoice(p.invoiceId) : undefined;
+  });
+  protected readonly invoiceProblems = computed(() => {
+    this.store.company();
+    this.store.customers();
+    const p = this.pi();
+    return p ? this.store.invoiceProblems(p.id) : [];
+  });
+  private readonly router = inject(Router);
   protected readonly adding = signal(false);
   protected readonly confirmDel = signal('');
   protected readonly modes = PAY_MODES;
@@ -239,6 +290,12 @@ export class ProformaDetail {
 
   constructor() {
     if (history.state?.stockUpdated) setTimeout(() => this.flash('Proforma created. Stock updated.'));
+  }
+
+  issueInvoice(p: Proforma) {
+    const inv = this.store.convertToInvoice(p.id);
+    this.confirmInvoice.set(false);
+    if (inv) this.router.navigate(['/invoices', inv.id], { state: { issued: true } });
   }
 
   startPayment() {

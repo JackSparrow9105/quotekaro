@@ -385,6 +385,8 @@ img { max-width: 100%; }
 .move-note { font-weight: 600; font-size: 15px; }
 .stock-ok { font-size: 13px; font-weight: 600; color: var(--won); }
 .stock-warn { font-size: 13px; font-weight: 700; color: var(--lost); }
+.tinv-problems { margin: 6px 0 0; padding-left: 18px; font-weight: 500; }
+.tinv-note { font-size: 13px; color: var(--ink-2); background: var(--draft-bg); border-radius: 10px; padding: 10px 12px; }
 .stock-alert { background: var(--lost-bg); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
 .stock-alert-title { font-weight: 700; color: var(--lost); }
 
